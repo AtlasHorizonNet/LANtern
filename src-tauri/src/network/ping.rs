@@ -90,7 +90,7 @@ fn ping_command(ip: Ipv4Addr) -> tokio::process::Command {
     cmd.arg(ip.to_string());
     #[cfg(windows)]
     {
-        use std::os::windows::process::CommandExt;
+        // Avoid a console window flash for every probe.
         const CREATE_NO_WINDOW: u32 = 0x0800_0000;
         cmd.creation_flags(CREATE_NO_WINDOW);
     }
