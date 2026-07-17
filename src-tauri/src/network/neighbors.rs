@@ -16,9 +16,7 @@ pub fn read_neighbors() -> HashMap<String, String> {
     }
     #[cfg(target_os = "windows")]
     {
-        read_windows_arp()
-            .or_else(read_arp_a)
-            .unwrap_or_default()
+        read_windows_arp().or_else(read_arp_a).unwrap_or_default()
     }
     #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
     {

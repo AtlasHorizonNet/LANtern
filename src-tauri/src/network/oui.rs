@@ -28,12 +28,7 @@ pub fn lookup_vendor(mac: &str) -> Option<String> {
     if cleaned.len() < 6 {
         return None;
     }
-    let key = format!(
-        "{}:{}:{}",
-        &cleaned[0..2],
-        &cleaned[2..4],
-        &cleaned[4..6]
-    );
+    let key = format!("{}:{}:{}", &cleaned[0..2], &cleaned[2..4], &cleaned[4..6]);
     OUI_MAP.get(&key).cloned()
 }
 
