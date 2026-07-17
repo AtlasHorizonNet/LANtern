@@ -23,11 +23,15 @@ pub async fn run_scan(
     cancel: Arc<AtomicBool>,
     nicknames: HashMap<String, String>,
     previous: HashMap<String, Device>,
+    selected_network: Option<NetworkInfo>,
 ) -> Result<ScanResult, String> {
     cancel.store(false, Ordering::SeqCst);
     oui::warm_cache();
 
-    let network = interfaces::detect_network()?;
+    let network = match selected_network {
+        Some(info) => interfaces::sanitize_network(info)?,
+        None => interfaces::detect_network()?,
+    };
     let hosts = hosts_to_scan(&network)?;
     let total = hosts.len() as u32;
     let local_ip: Ipv4Addr = network
@@ -293,4 +297,8 @@ fn emit_progress(app: &AppHandle, progress: ScanProgress) {
 
 pub fn network_info() -> Result<NetworkInfo, String> {
     interfaces::detect_network()
+}
+
+pub fn list_networks() -> Result<Vec<NetworkInfo>, String> {
+    interfaces::list_networks()
 }

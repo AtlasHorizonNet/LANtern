@@ -10,14 +10,23 @@ pub fn get_network_info() -> Result<NetworkInfo, String> {
 }
 
 #[tauri::command]
-pub async fn start_scan(app: AppHandle, state: State<'_, AppState>) -> Result<ScanResult, String> {
+pub fn list_networks() -> Result<Vec<NetworkInfo>, String> {
+    scan::list_networks()
+}
+
+#[tauri::command]
+pub async fn start_scan(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    network: Option<NetworkInfo>,
+) -> Result<ScanResult, String> {
     let cancel = state.cancel.clone();
     cancel.store(false, Ordering::SeqCst);
 
     let nicknames = state.nicknames();
     let previous = state.previous_by_ip();
 
-    let result = scan::run_scan(app, cancel, nicknames, previous).await?;
+    let result = scan::run_scan(app, cancel, nicknames, previous, network).await?;
 
     if !result.cancelled {
         state.upsert_devices(&result.devices);
