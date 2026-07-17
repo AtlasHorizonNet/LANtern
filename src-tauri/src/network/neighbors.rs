@@ -29,6 +29,20 @@ pub fn read_neighbors() -> HashMap<String, String> {
 #[cfg(target_os = "linux")]
 fn read_linux_proc_arp() -> Option<HashMap<String, String>> {
     let content = std::fs::read_to_string("/proc/net/arp").ok()?;
+    Some(parse_proc_arp(&content))
+}
+
+#[cfg(target_os = "linux")]
+fn read_ip_neigh() -> Option<HashMap<String, String>> {
+    let output = Command::new("ip").args(["neigh", "show"]).output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    Some(parse_ip_neigh(&String::from_utf8_lossy(&output.stdout)))
+}
+
+/// Parse `/proc/net/arp` text into IP → MAC.
+pub fn parse_proc_arp(content: &str) -> HashMap<String, String> {
     let mut map = HashMap::new();
     for line in content.lines().skip(1) {
         let cols: Vec<&str> = line.split_whitespace().collect();
@@ -41,16 +55,11 @@ fn read_linux_proc_arp() -> Option<HashMap<String, String>> {
             map.insert(ip.to_string(), norm);
         }
     }
-    Some(map)
+    map
 }
 
-#[cfg(target_os = "linux")]
-fn read_ip_neigh() -> Option<HashMap<String, String>> {
-    let output = Command::new("ip").args(["neigh", "show"]).output().ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    let text = String::from_utf8_lossy(&output.stdout);
+/// Parse `ip neigh show` text into IP → MAC.
+pub fn parse_ip_neigh(text: &str) -> HashMap<String, String> {
     let mut map = HashMap::new();
     for line in text.lines() {
         let cols: Vec<&str> = line.split_whitespace().collect();
@@ -67,13 +76,13 @@ fn read_ip_neigh() -> Option<HashMap<String, String>> {
             }
         }
     }
-    Some(map)
+    map
 }
 
 #[cfg(target_os = "macos")]
 fn read_arp_an() -> Option<HashMap<String, String>> {
     let output = Command::new("arp").arg("-an").output().ok()?;
-    parse_bsd_arp(&String::from_utf8_lossy(&output.stdout))
+    Some(parse_bsd_arp(&String::from_utf8_lossy(&output.stdout)))
 }
 
 #[cfg(target_os = "windows")]
@@ -82,7 +91,48 @@ fn read_windows_arp() -> Option<HashMap<String, String>> {
     if !output.status.success() {
         return None;
     }
-    let text = String::from_utf8_lossy(&output.stdout);
+    Some(parse_windows_arp(&String::from_utf8_lossy(&output.stdout)))
+}
+
+#[cfg(target_os = "windows")]
+fn read_arp_a() -> Option<HashMap<String, String>> {
+    read_windows_arp()
+}
+
+/// Parse BSD-style `arp -an` output into IP → MAC.
+pub fn parse_bsd_arp(text: &str) -> HashMap<String, String> {
+    let mut map = HashMap::new();
+    for line in text.lines() {
+        let Some(ip) = extract_ip_in_parens(line) else {
+            continue;
+        };
+        let Some(mac) = extract_mac(line) else {
+            continue;
+        };
+        map.insert(ip, mac);
+    }
+    map
+}
+
+fn extract_ip_in_parens(line: &str) -> Option<String> {
+    let start = line.find('(')? + 1;
+    let end = line[start..].find(')')? + start;
+    let ip = &line[start..end];
+    ip.parse::<Ipv4Addr>().ok()?;
+    Some(ip.to_string())
+}
+
+fn extract_mac(line: &str) -> Option<String> {
+    for tok in line.split_whitespace() {
+        if let Some(mac) = normalize_mac(tok) {
+            return Some(mac);
+        }
+    }
+    None
+}
+
+/// Parse Windows `arp -a` text into IP → MAC.
+pub fn parse_windows_arp(text: &str) -> HashMap<String, String> {
     let mut map = HashMap::new();
     for line in text.lines() {
         let cols: Vec<&str> = line.split_whitespace().collect();
@@ -96,49 +146,11 @@ fn read_windows_arp() -> Option<HashMap<String, String>> {
             map.insert(cols[0].to_string(), mac);
         }
     }
-    Some(map)
+    map
 }
 
-#[cfg(target_os = "windows")]
-fn read_arp_a() -> Option<HashMap<String, String>> {
-    read_windows_arp()
-}
-
-#[cfg(target_os = "macos")]
-fn parse_bsd_arp(text: &str) -> Option<HashMap<String, String>> {
-    let mut map = HashMap::new();
-    for line in text.lines() {
-        let Some(ip) = extract_ip_in_parens(line) else {
-            continue;
-        };
-        let Some(mac) = extract_mac(line) else {
-            continue;
-        };
-        map.insert(ip, mac);
-    }
-    Some(map)
-}
-
-#[cfg(target_os = "macos")]
-fn extract_ip_in_parens(line: &str) -> Option<String> {
-    let start = line.find('(')? + 1;
-    let end = line[start..].find(')')? + start;
-    let ip = &line[start..end];
-    ip.parse::<Ipv4Addr>().ok()?;
-    Some(ip.to_string())
-}
-
-#[cfg(target_os = "macos")]
-fn extract_mac(line: &str) -> Option<String> {
-    for tok in line.split_whitespace() {
-        if let Some(mac) = normalize_mac(tok) {
-            return Some(mac);
-        }
-    }
-    None
-}
-
-fn normalize_mac(raw: &str) -> Option<String> {
+/// Normalize MAC addresses from common OS formats into `AA:BB:CC:DD:EE:FF`.
+pub fn normalize_mac(raw: &str) -> Option<String> {
     let cleaned: String = raw
         .trim()
         .chars()

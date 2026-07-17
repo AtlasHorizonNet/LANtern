@@ -77,18 +77,18 @@ pub fn detect_network() -> Result<NetworkInfo, String> {
     })
 }
 
-fn mask_to_prefix(mask: Ipv4Addr) -> u8 {
+pub fn mask_to_prefix(mask: Ipv4Addr) -> u8 {
     u32::from(mask).count_ones() as u8
 }
 
-fn is_rfc1918(ip: Ipv4Addr) -> bool {
+pub fn is_rfc1918(ip: Ipv4Addr) -> bool {
     let o = ip.octets();
     o[0] == 10
         || (o[0] == 172 && (16..=31).contains(&o[1]))
         || (o[0] == 192 && o[1] == 168)
 }
 
-fn guess_gateway(network: Ipv4Network) -> Option<Ipv4Addr> {
+pub fn guess_gateway(network: Ipv4Network) -> Option<Ipv4Addr> {
     // Common home-router convention: first usable host.
     network.nth(1)
 }

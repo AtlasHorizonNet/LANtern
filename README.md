@@ -66,14 +66,18 @@ Installers appear under `src-tauri/target/release/bundle/`.
 
 Device nicknames and last-known devices are stored locally as JSON in the app data directory (platform-specific via Tauri path resolver). Nothing is uploaded.
 
-## Project layout
+## Tests
 
+Rust backend tests (recommended; this is where scanning logic lives):
+
+```bash
+cd src-tauri
+cargo test
 ```
-src/                 React UI
-src-tauri/           Rust / Tauri backend
-  src/network/       Discovery, ARP, DNS, OUI
-  resources/oui.txt  Bundled vendor database
-```
+
+These cover OUI lookup, MAC normalization, ARP table parsers, subnet helpers, and local device-store persistence. A few smoke checks also exercise live interface/neighbor APIs when available.
+
+Frontend UI tests are not included yet — most of the product risk is in the Rust network layer.
 
 ## Roadmap (not in this release)
 
