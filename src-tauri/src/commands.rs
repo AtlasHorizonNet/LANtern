@@ -10,10 +10,7 @@ pub fn get_network_info() -> Result<NetworkInfo, String> {
 }
 
 #[tauri::command]
-pub async fn start_scan(
-    app: AppHandle,
-    state: State<'_, AppState>,
-) -> Result<ScanResult, String> {
+pub async fn start_scan(app: AppHandle, state: State<'_, AppState>) -> Result<ScanResult, String> {
     let cancel = state.cancel.clone();
     cancel.store(false, Ordering::SeqCst);
 

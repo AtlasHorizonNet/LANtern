@@ -130,10 +130,16 @@ fn mask_to_prefix_common_masks() {
 #[test]
 fn rfc1918_classification() {
     assert!(network::interfaces::is_rfc1918(Ipv4Addr::new(10, 0, 0, 1)));
-    assert!(network::interfaces::is_rfc1918(Ipv4Addr::new(172, 16, 0, 1)));
-    assert!(network::interfaces::is_rfc1918(Ipv4Addr::new(192, 168, 1, 1)));
+    assert!(network::interfaces::is_rfc1918(Ipv4Addr::new(
+        172, 16, 0, 1
+    )));
+    assert!(network::interfaces::is_rfc1918(Ipv4Addr::new(
+        192, 168, 1, 1
+    )));
     assert!(!network::interfaces::is_rfc1918(Ipv4Addr::new(8, 8, 8, 8)));
-    assert!(!network::interfaces::is_rfc1918(Ipv4Addr::new(172, 15, 0, 1)));
+    assert!(!network::interfaces::is_rfc1918(Ipv4Addr::new(
+        172, 15, 0, 1
+    )));
 }
 
 #[test]
@@ -174,7 +180,7 @@ fn device_store_persists_nicknames_and_devices() {
     let state = AppState::load(path.clone());
 
     let device = sample_device("192.168.1.20", Some("AA:BB:CC:DD:EE:FF"));
-    state.upsert_devices(&[device.clone()]);
+    state.upsert_devices(std::slice::from_ref(&device));
     state
         .set_nickname("AA:BB:CC:DD:EE:FF", Some("  Living room TV  ".into()))
         .unwrap();
@@ -192,7 +198,10 @@ fn device_store_persists_nicknames_and_devices() {
     // Reload from disk
     let reloaded = AppState::load(path);
     assert_eq!(
-        reloaded.nicknames().get("AA:BB:CC:DD:EE:FF").map(String::as_str),
+        reloaded
+            .nicknames()
+            .get("AA:BB:CC:DD:EE:FF")
+            .map(String::as_str),
         Some("Living room TV")
     );
     assert_eq!(reloaded.all_devices().len(), 1);

@@ -1,5 +1,8 @@
 # LANtern
 
+[![CI](https://github.com/AtlasHorizonNet/LANtern/actions/workflows/ci.yml/badge.svg)](https://github.com/AtlasHorizonNet/LANtern/actions/workflows/ci.yml)
+[![Build](https://github.com/AtlasHorizonNet/LANtern/actions/workflows/build.yml/badge.svg)](https://github.com/AtlasHorizonNet/LANtern/actions/workflows/build.yml)
+
 A free, local-first desktop LAN scanner built with **Tauri 2**, **Rust**, and **React**. Discover devices on your network and see IP, hostname, MAC, vendor, and online status — no account, no subscription.
 
 ## Features (MVP)
@@ -78,6 +81,20 @@ cargo test
 These cover OUI lookup, MAC normalization, ARP table parsers, subnet helpers, and local device-store persistence. A few smoke checks also exercise live interface/neighbor APIs when available.
 
 Frontend UI tests are not included yet — most of the product risk is in the Rust network layer.
+
+## Continuous integration
+
+Two GitHub Actions workflows run on Linux, macOS, and Windows:
+
+- **CI** (`.github/workflows/ci.yml`) — runs on every push to `main` and on pull requests. It type-checks/builds the frontend, checks Rust formatting (`cargo fmt`), lints with `cargo clippy -D warnings`, and runs the Rust test suite on all three platforms.
+- **Build** (`.github/workflows/build.yml`) — runs on pushes to `main`, on `v*` tags, and on manual dispatch. It builds the Tauri app for Linux, Windows, macOS (Apple Silicon), and macOS (Intel). Non-tag runs upload the installers as workflow artifacts; pushing a `v*` tag publishes them to a draft GitHub Release.
+
+To cut a release, push a tag such as `v0.1.0`:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
 
 ## Roadmap (tracked as GitHub issues)
 

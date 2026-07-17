@@ -7,7 +7,8 @@ use std::net::Ipv4Addr;
 pub const MAX_SCAN_HOSTS: u32 = 1024;
 
 pub fn detect_network() -> Result<NetworkInfo, String> {
-    let interfaces = NetworkInterface::show().map_err(|e| format!("Failed to list interfaces: {e}"))?;
+    let interfaces =
+        NetworkInterface::show().map_err(|e| format!("Failed to list interfaces: {e}"))?;
 
     let mut candidates = Vec::new();
 
@@ -64,7 +65,9 @@ pub fn detect_network() -> Result<NetworkInfo, String> {
         .next()
         .ok_or_else(|| "No suitable IPv4 network interface found".to_string())?;
 
-    let host_count = (network.size() as u64).saturating_sub(2).min(u32::MAX as u64) as u32;
+    let host_count = (network.size() as u64)
+        .saturating_sub(2)
+        .min(u32::MAX as u64) as u32;
     let gateway = guess_gateway(network);
 
     Ok(NetworkInfo {
@@ -83,9 +86,7 @@ pub fn mask_to_prefix(mask: Ipv4Addr) -> u8 {
 
 pub fn is_rfc1918(ip: Ipv4Addr) -> bool {
     let o = ip.octets();
-    o[0] == 10
-        || (o[0] == 172 && (16..=31).contains(&o[1]))
-        || (o[0] == 192 && o[1] == 168)
+    o[0] == 10 || (o[0] == 172 && (16..=31).contains(&o[1])) || (o[0] == 192 && o[1] == 168)
 }
 
 pub fn guess_gateway(network: Ipv4Network) -> Option<Ipv4Addr> {
