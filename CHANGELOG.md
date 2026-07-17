@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/AtlasHorizonNet/LANtern/compare/v0.2.0...v0.2.1) (2026-07-17)
+
+
+### Bug Fixes
+
+* sync updater pubkey in tauri.conf.json after key rotation ([9c9d61f](https://github.com/AtlasHorizonNet/LANtern/commit/9c9d61ffeb66af4501230823f12f0e8efd6f77bf))
+
 ## [0.2.0](https://github.com/AtlasHorizonNet/LANtern/compare/v0.1.0...v0.2.0) (2026-07-17)
 
 
