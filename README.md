@@ -114,7 +114,7 @@ The tracked version lives in `.release-please-manifest.json`; behavior is config
 
 The app uses the [Tauri updater plugin](https://tauri.app/plugin/updater/). On launch (and via the "Check for updates" button) it fetches `latest.json` from the newest GitHub release, and offers to download, verify (minisign signature), install, and relaunch.
 
-- Release builds sign updater artifacts with the key configured via `TAURI_SIGNING_PRIVATE_KEY` (repo secret preferred; `.tauri/updater.key` is the fallback for this private repo). The matching public key is embedded in `src-tauri/tauri.conf.json`.
+- Release builds sign updater artifacts with the key in the `TAURI_SIGNING_PRIVATE_KEY` repo secret (`TAURI_SIGNING_PRIVATE_KEY_PASSWORD` if the key has one). The matching public key is embedded in `src-tauri/tauri.conf.json` (a copy lives at `.tauri/updater.key.pub`).
 - The release workflow uploads `latest.json` alongside the installers (`includeUpdaterJson: true`), which is what deployed apps poll.
 - If you rotate the keypair (`npm run tauri signer generate`), update both the `pubkey` in `tauri.conf.json` and the private-key secret, or already-shipped apps will reject new updates.
 - Note: while this repository is private, unauthenticated apps cannot fetch release assets; the in-app updater will start working once the repo (or its releases) is public.
