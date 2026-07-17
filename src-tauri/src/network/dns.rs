@@ -3,7 +3,8 @@ use std::time::Duration;
 
 /// Reverse DNS with a short timeout. Returns None when lookup fails or times out.
 pub fn reverse_lookup(ip: Ipv4Addr) -> Option<String> {
-    let handle = std::thread::spawn(move || dns_lookup::lookup_addr(&std::net::IpAddr::V4(ip)).ok());
+    let handle =
+        std::thread::spawn(move || dns_lookup::lookup_addr(&std::net::IpAddr::V4(ip)).ok());
 
     match handle.join() {
         Ok(Some(name)) => {
