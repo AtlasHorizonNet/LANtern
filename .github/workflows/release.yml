@@ -107,4 +107,26 @@ jobs:
           releaseDraft: false
           prerelease: false
           includeUpdaterJson: true
+          # Windows installs via NSIS look for windows-x86_64-nsis / windows-x86_64.
+          updaterJsonPreferNsis: true
           args: ${{ matrix.args }}
+
+  # Matrix jobs each upload a partial latest.json and can race, dropping
+  # platform keys. Rebuild one authoritative manifest after all builds finish.
+  finalize-updater-json:
+    name: Publish complete latest.json
+    needs: [release-please, build]
+    if: ${{ always() && needs.build.result == 'success' && (needs.release-please.outputs.release_created == 'true' || startsWith(github.ref, 'refs/tags/v')) }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rebuild and upload latest.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ needs.release-please.outputs.tag_name || github.ref_name }}"
+          python3 scripts/rebuild-latest-json.py \
+            --repo "${{ github.repository }}" \
+            --tag "$TAG" \
+            --prefer-nsis
