@@ -1,12 +1,12 @@
 [package]
-name = "scanapp"
+name = "lantern"
 version = "0.1.0"
-description = "Local network device scanner"
+description = "LANtern — local network device scanner"
 authors = ["you"]
 edition = "2021"
 
 [lib]
-name = "scanapp_lib"
+name = "lantern_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

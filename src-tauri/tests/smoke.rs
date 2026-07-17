@@ -1,7 +1,7 @@
-//! Unit and integration tests for Scanapp helpers (no GUI required).
+//! Unit and integration tests for LANtern helpers (no GUI required).
 
-use scanapp_lib::network::{self, Device, NetworkInfo};
-use scanapp_lib::store::AppState;
+use lantern_lib::network::{self, Device, NetworkInfo};
+use lantern_lib::store::AppState;
 use std::net::Ipv4Addr;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -164,7 +164,7 @@ fn hosts_to_scan_rejects_oversized_subnets() {
 #[test]
 fn device_store_persists_nicknames_and_devices() {
     let dir = std::env::temp_dir().join(format!(
-        "scanapp-test-{}",
+        "lantern-test-{}",
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
