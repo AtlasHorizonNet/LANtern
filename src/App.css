@@ -409,7 +409,7 @@ input {
   gap: 12px;
   align-items: center;
   text-align: left;
-  padding: 14px 8px;
+  padding: 14px 16px 14px 8px;
   border: 0;
   border-bottom: 1px solid var(--line);
   background: transparent;
