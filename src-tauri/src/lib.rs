@@ -24,6 +24,7 @@ pub fn run() {
             commands::list_networks,
             commands::start_scan,
             commands::cancel_scan,
+            commands::ping_device,
             commands::get_devices,
             commands::set_device_nickname,
         ])

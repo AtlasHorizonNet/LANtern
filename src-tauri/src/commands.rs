@@ -1,6 +1,8 @@
+use crate::network::ping::{self, PingOutcome};
 use crate::network::scan;
 use crate::network::{Device, NetworkInfo, ScanResult};
 use crate::store::AppState;
+use std::net::Ipv4Addr;
 use std::sync::atomic::Ordering;
 use tauri::{AppHandle, State};
 
@@ -40,6 +42,14 @@ pub async fn start_scan(
 pub fn cancel_scan(state: State<'_, AppState>) -> Result<(), String> {
     state.cancel.store(true, Ordering::SeqCst);
     Ok(())
+}
+
+#[tauri::command]
+pub async fn ping_device(ip: String) -> Result<PingOutcome, String> {
+    let addr: Ipv4Addr = ip
+        .parse()
+        .map_err(|e| format!("Invalid IPv4 address {ip}: {e}"))?;
+    Ok(ping::ping_once(addr).await)
 }
 
 #[tauri::command]

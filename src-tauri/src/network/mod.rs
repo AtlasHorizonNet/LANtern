@@ -2,6 +2,7 @@ pub mod dns;
 pub mod interfaces;
 pub mod neighbors;
 pub mod oui;
+pub mod ping;
 pub mod scan;
 
 use serde::{Deserialize, Serialize};

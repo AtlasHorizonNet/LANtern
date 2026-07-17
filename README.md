@@ -10,6 +10,7 @@ A free, local-first desktop LAN scanner built with **Tauri 2**, **Rust**, and **
 
 - Detect your active IPv4 interface, subnet, and gateway
 - Choose which interface/IP to scan when the machine has several
+- Ping tool: per-device latency, packet loss, and session history
 - Built-in self-update: checks GitHub releases and installs updates in-app
 - Concurrent host discovery (UDP ARP-seed + TCP connect probe)
 - MAC addresses from the OS neighbor/ARP table
@@ -67,6 +68,12 @@ Installers appear under `src-tauri/target/release/bundle/`.
 5. Keep previously seen devices marked offline if they disappear.
 
 **Permissions:** Most home networks work without elevation. Raw ICMP is not required. On some networks, firewalled hosts may only appear after ARP seeding — results depend on OS neighbor-table visibility.
+
+## Ping tool
+
+Select a device and press **Start** in the Ping section of the detail pane. LANtern sends one probe per second and shows the last/average latency, packet loss, and a bar history for the session (last 20 probes).
+
+**How it works & permissions:** each probe invokes the operating system's `ping` binary (one echo request), which is unprivileged on Linux, macOS, and Windows — the app never needs to run as admin for this. If the `ping` binary is unavailable or produces no reply (e.g. stripped-down containers, ICMP-filtered networks), LANtern falls back to a timed TCP connect against common ports; a completed or refused connection both prove the host is up and give a latency figure. The method used (`icmp` or `tcp`) is shown next to the reply counter.
 
 ## Data storage
 

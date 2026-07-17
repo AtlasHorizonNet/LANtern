@@ -32,6 +32,13 @@ export type ScanResult = {
   cancelled: boolean;
 };
 
+export type PingOutcome = {
+  method: "icmp" | "tcp";
+  success: boolean;
+  latencyMs: number | null;
+  error: string | null;
+};
+
 export function deviceKey(device: Device): string {
   return device.mac ?? device.ip;
 }
