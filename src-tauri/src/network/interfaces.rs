@@ -6,7 +6,11 @@ use std::net::Ipv4Addr;
 /// Maximum hosts we will scan without an explicit override.
 pub const MAX_SCAN_HOSTS: u32 = 1024;
 
-pub fn detect_network() -> Result<NetworkInfo, String> {
+/// List every scannable IPv4 network, best candidate first.
+///
+/// Preference order: private (RFC 1918) ranges before public ones, then
+/// smaller subnets (more likely a home/office LAN than a corporate /8).
+pub fn list_networks() -> Result<Vec<NetworkInfo>, String> {
     let interfaces =
         NetworkInterface::show().map_err(|e| format!("Failed to list interfaces: {e}"))?;
 
@@ -51,7 +55,6 @@ pub fn detect_network() -> Result<NetworkInfo, String> {
         }
     }
 
-    // Prefer private LAN ranges, then smaller subnets (more likely home/office).
     candidates.sort_by(|a, b| {
         let score = |ip: Ipv4Addr, prefix: u8| -> (u8, u8) {
             let class = if is_rfc1918(ip) { 0 } else { 1 };
@@ -60,24 +63,80 @@ pub fn detect_network() -> Result<NetworkInfo, String> {
         score(a.1, a.3).cmp(&score(b.1, b.3))
     });
 
-    let (name, local_ip, network, prefix) = candidates
+    Ok(candidates
+        .into_iter()
+        .map(|(name, local_ip, network, prefix)| {
+            let host_count = network_host_count(network);
+            let gateway = guess_gateway(network);
+            NetworkInfo {
+                interface_name: name,
+                local_ip: local_ip.to_string(),
+                cidr: format!("{}/{}", network.network(), prefix),
+                prefix,
+                gateway: gateway.map(|g| g.to_string()),
+                host_count,
+            }
+        })
+        .collect())
+}
+
+pub fn detect_network() -> Result<NetworkInfo, String> {
+    list_networks()?
         .into_iter()
         .next()
-        .ok_or_else(|| "No suitable IPv4 network interface found".to_string())?;
+        .ok_or_else(|| "No suitable IPv4 network interface found".to_string())
+}
 
-    let host_count = (network.size() as u64)
-        .saturating_sub(2)
-        .min(u32::MAX as u64) as u32;
-    let gateway = guess_gateway(network);
+/// Validate a caller-supplied network selection and normalize derived fields.
+///
+/// The frontend passes back one of the `NetworkInfo` values from
+/// `list_networks`, but nothing stops a stale or hand-crafted value from
+/// arriving, so re-derive everything that scanning depends on from the CIDR
+/// and make sure the local IP actually belongs to that subnet.
+pub fn sanitize_network(info: NetworkInfo) -> Result<NetworkInfo, String> {
+    let network: Ipv4Network = info
+        .cidr
+        .parse()
+        .map_err(|e| format!("Invalid CIDR {}: {e}", info.cidr))?;
+
+    let local: Ipv4Addr = info
+        .local_ip
+        .parse()
+        .map_err(|e| format!("Invalid local IP {}: {e}", info.local_ip))?;
+
+    if !network.contains(local) {
+        return Err(format!(
+            "Local IP {} is not inside subnet {}",
+            info.local_ip, info.cidr
+        ));
+    }
+
+    let prefix = network.prefix();
+    if !(8..=30).contains(&prefix) {
+        return Err(format!("Unsupported prefix length /{prefix}"));
+    }
+
+    let gateway = info
+        .gateway
+        .as_deref()
+        .and_then(|g| g.parse::<Ipv4Addr>().ok())
+        .filter(|g| network.contains(*g))
+        .or_else(|| guess_gateway(network));
 
     Ok(NetworkInfo {
-        interface_name: name,
-        local_ip: local_ip.to_string(),
+        interface_name: info.interface_name,
+        local_ip: local.to_string(),
         cidr: format!("{}/{}", network.network(), prefix),
         prefix,
         gateway: gateway.map(|g| g.to_string()),
-        host_count,
+        host_count: network_host_count(network),
     })
+}
+
+fn network_host_count(network: Ipv4Network) -> u32 {
+    (network.size() as u64)
+        .saturating_sub(2)
+        .min(u32::MAX as u64) as u32
 }
 
 pub fn mask_to_prefix(mask: Ipv4Addr) -> u8 {

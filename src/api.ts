@@ -5,8 +5,12 @@ export function getNetworkInfo(): Promise<NetworkInfo> {
   return invoke("get_network_info");
 }
 
-export function startScan(): Promise<ScanResult> {
-  return invoke("start_scan");
+export function listNetworks(): Promise<NetworkInfo[]> {
+  return invoke("list_networks");
+}
+
+export function startScan(network?: NetworkInfo | null): Promise<ScanResult> {
+  return invoke("start_scan", { network: network ?? null });
 }
 
 export function cancelScan(): Promise<void> {

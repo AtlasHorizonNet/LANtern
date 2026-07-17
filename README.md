@@ -9,6 +9,8 @@ A free, local-first desktop LAN scanner built with **Tauri 2**, **Rust**, and **
 ## Features (MVP)
 
 - Detect your active IPv4 interface, subnet, and gateway
+- Choose which interface/IP to scan when the machine has several
+- Built-in self-update: checks GitHub releases and installs updates in-app
 - Concurrent host discovery (UDP ARP-seed + TCP connect probe)
 - MAC addresses from the OS neighbor/ARP table
 - Vendor lookup from a bundled IEEE OUI database
@@ -107,6 +109,15 @@ The tracked version lives in `.release-please-manifest.json`; behavior is config
 > **Repo setting required for the automated flow:** release-please opens the release PR, so enable **Settings → Actions → General → Workflow permissions → "Allow GitHub Actions to create and approve pull requests."** Without it, release-please can bump versions but cannot open the release PR.
 
 > Note: because the release PR is opened with the default `GITHUB_TOKEN`, CI checks do not run on it. To run CI on release PRs, supply a personal access token (with `contents: write` and `pull-requests: write`) as the `token:` input in `release.yml`.
+
+### Self-update (in-app)
+
+The app uses the [Tauri updater plugin](https://tauri.app/plugin/updater/). On launch (and via the "Check for updates" button) it fetches `latest.json` from the newest GitHub release, and offers to download, verify (minisign signature), install, and relaunch.
+
+- Release builds sign updater artifacts with the key configured via `TAURI_SIGNING_PRIVATE_KEY` (repo secret preferred; `.tauri/updater.key` is the fallback for this private repo). The matching public key is embedded in `src-tauri/tauri.conf.json`.
+- The release workflow uploads `latest.json` alongside the installers (`includeUpdaterJson: true`), which is what deployed apps poll.
+- If you rotate the keypair (`npm run tauri signer generate`), update both the `pubkey` in `tauri.conf.json` and the private-key secret, or already-shipped apps will reject new updates.
+- Note: while this repository is private, unauthenticated apps cannot fetch release assets; the in-app updater will start working once the repo (or its releases) is public.
 
 ### Cutting a release by tag (manual path)
 
