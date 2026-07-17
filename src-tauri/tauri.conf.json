@@ -37,7 +37,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDhCNjAyODAyNDNBRDlEMjYKUldRbW5hMURBaWhnaTd3K1UvT0lOWjBxR2xQdTJWa0U4RlAvaVpLVjlJYUc0Qkg5Z2ZIYlhnRTcK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDhDOEJCQkQ5MkVDQTM0RjEKUldUeE5Nb3UyYnVMaktCNnBndFpGU0o3RE5PMGpGeVVXQm45QWVrUlJDMmxtU3BiY09yK3RPRzIK",
       "endpoints": [
         "https://github.com/AtlasHorizonNet/LANtern/releases/latest/download/latest.json"
       ]
