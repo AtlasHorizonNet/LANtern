@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.1](https://github.com/AtlasHorizonNet/LANtern/compare/v0.3.0...v0.3.1) (2026-07-17)
+
+
+### Features
+
+* update LANtern logo and regenerate app icons ([604c72e](https://github.com/AtlasHorizonNet/LANtern/commit/604c72e8d97b4f0214a613c3b164e80c22c1b3ea))
+
+
+### Miscellaneous Chores
+
+* prepare release 0.3.1 ([ab6fe24](https://github.com/AtlasHorizonNet/LANtern/commit/ab6fe24e215e0581cbdc09d98341124f06310e57))
+
 ## [0.3.0](https://github.com/AtlasHorizonNet/LANtern/compare/v0.2.1...v0.3.0) (2026-07-17)
 
 
