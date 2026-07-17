@@ -222,6 +222,65 @@ input {
   margin-left: 0;
 }
 
+.ping-panel {
+  margin-top: 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.ping-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.ping-head h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.ping-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 0.88rem;
+  margin-bottom: 10px;
+}
+
+.ping-stats strong {
+  font-family: var(--mono);
+  font-weight: 600;
+}
+
+.ping-history {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 44px;
+}
+
+.ping-bar {
+  flex: 1;
+  max-width: 14px;
+  border-radius: 2px 2px 0 0;
+  background: linear-gradient(180deg, var(--accent), var(--accent-dim));
+  transition: height 0.15s ease;
+}
+
+.ping-bar.fail {
+  background: var(--danger);
+  opacity: 0.75;
+}
+
+.ping-hint {
+  margin: 0;
+  font-size: 0.88rem;
+}
+
 .mono {
   font-family: var(--mono);
   font-size: 0.9rem;

@@ -1,9 +1,10 @@
-import { useEffect, useState, useTransition, type ReactNode } from "react";
+import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import { listen } from "@tauri-apps/api/event";
 import {
   cancelScan,
   getDevices,
   listNetworks,
+  pingDevice,
   setDeviceNickname,
   startScan,
 } from "./api";
@@ -12,6 +13,7 @@ import {
   displayName,
   type Device,
   type NetworkInfo,
+  type PingOutcome,
   type ScanProgress,
 } from "./types";
 import {
@@ -318,6 +320,8 @@ function App() {
               />
             </dl>
 
+            <PingPanel ip={selected.ip} />
+
             <label className="nick-field">
               <span>Nickname</span>
               <div className="nick-row">
@@ -368,6 +372,131 @@ function Detail({
     <div>
       <dt>{label}</dt>
       <dd className={mono ? "mono" : undefined}>{value}</dd>
+    </div>
+  );
+}
+
+const PING_HISTORY_LIMIT = 20;
+const PING_INTERVAL_MS = 1000;
+
+function PingPanel({ ip }: { ip: string }) {
+  const [running, setRunning] = useState(false);
+  const [history, setHistory] = useState<PingOutcome[]>([]);
+  const runningRef = useRef(false);
+
+  // Stop and clear when the selected device changes or the panel unmounts.
+  useEffect(() => {
+    setRunning(false);
+    setHistory([]);
+    return () => {
+      runningRef.current = false;
+    };
+  }, [ip]);
+
+  useEffect(() => {
+    runningRef.current = running;
+    if (!running) return;
+
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const tick = async () => {
+      const outcome = await pingDevice(ip).catch(
+        (e): PingOutcome => ({
+          method: "icmp",
+          success: false,
+          latencyMs: null,
+          error: String(e),
+        }),
+      );
+      if (!runningRef.current) return;
+      setHistory((prev) => [...prev.slice(-(PING_HISTORY_LIMIT - 1)), outcome]);
+      timer = setTimeout(tick, PING_INTERVAL_MS);
+    };
+    tick();
+
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [running, ip]);
+
+  const sent = history.length;
+  const replies = history.filter((h) => h.success);
+  const lossPct = sent ? Math.round(((sent - replies.length) / sent) * 100) : 0;
+  const latencies = replies
+    .map((h) => h.latencyMs)
+    .filter((v): v is number => v !== null);
+  const last = history[history.length - 1];
+  const avg = latencies.length
+    ? latencies.reduce((a, b) => a + b, 0) / latencies.length
+    : null;
+  const max = latencies.length ? Math.max(...latencies) : null;
+
+  const fmt = (v: number | null | undefined) =>
+    v === null || v === undefined ? "—" : `${v < 10 ? v.toFixed(2) : v.toFixed(1)} ms`;
+
+  return (
+    <div className="ping-panel">
+      <div className="ping-head">
+        <h3>Ping</h3>
+        <button
+          className={`btn small ${running ? "ghost" : "primary"}`}
+          type="button"
+          onClick={() => setRunning((r) => !r)}
+        >
+          {running ? "Stop" : "Start"}
+        </button>
+      </div>
+
+      {sent ? (
+        <>
+          <div className="ping-stats">
+            <span>
+              Last:{" "}
+              <strong>
+                {last?.success ? fmt(last.latencyMs) : "timeout"}
+              </strong>
+            </span>
+            <span>
+              Avg: <strong>{fmt(avg)}</strong>
+            </span>
+            <span>
+              Loss: <strong>{lossPct}%</strong>
+            </span>
+            <span className="muted">
+              {replies.length}/{sent} replies
+              {last ? ` · ${last.method}` : ""}
+            </span>
+          </div>
+          <div className="ping-history" aria-label="Ping history">
+            {history.map((h, i) => (
+              <span
+                key={i}
+                className={`ping-bar ${h.success ? "ok" : "fail"}`}
+                style={{
+                  height: h.success
+                    ? `${Math.max(
+                        12,
+                        max && h.latencyMs
+                          ? Math.min(100, (h.latencyMs / max) * 100)
+                          : 40,
+                      )}%`
+                    : "100%",
+                }}
+                title={
+                  h.success
+                    ? `${fmt(h.latencyMs)} (${h.method})`
+                    : (h.error ?? "timeout")
+                }
+              />
+            ))}
+          </div>
+        </>
+      ) : (
+        <p className="muted ping-hint">
+          {running
+            ? "Waiting for first reply…"
+            : "Measure latency and packet loss for this device."}
+        </p>
+      )}
     </div>
   );
 }

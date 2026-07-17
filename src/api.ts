@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Device, NetworkInfo, ScanResult } from "./types";
+import type { Device, NetworkInfo, PingOutcome, ScanResult } from "./types";
 
 export function getNetworkInfo(): Promise<NetworkInfo> {
   return invoke("get_network_info");
@@ -19,6 +19,10 @@ export function cancelScan(): Promise<void> {
 
 export function getDevices(): Promise<Device[]> {
   return invoke("get_devices");
+}
+
+export function pingDevice(ip: string): Promise<PingOutcome> {
+  return invoke("ping_device", { ip });
 }
 
 export function setDeviceNickname(

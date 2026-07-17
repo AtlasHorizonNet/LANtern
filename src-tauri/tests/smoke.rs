@@ -311,6 +311,84 @@ fn list_networks_contains_detected_default() {
 }
 
 #[test]
+fn ping_parse_linux_output() {
+    let out = "\
+PING 192.168.1.1 (192.168.1.1) 56(84) bytes of data.
+64 bytes from 192.168.1.1: icmp_seq=1 ttl=64 time=0.845 ms
+
+--- 192.168.1.1 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+";
+    assert!(network::ping::output_indicates_reply(out));
+    assert_eq!(network::ping::parse_ping_time_ms(out), Some(0.845));
+}
+
+#[test]
+fn ping_parse_macos_output() {
+    let out = "\
+PING 10.0.0.1 (10.0.0.1): 56 data bytes
+64 bytes from 10.0.0.1: icmp_seq=0 ttl=64 time=1.334 ms
+";
+    assert!(network::ping::output_indicates_reply(out));
+    assert_eq!(network::ping::parse_ping_time_ms(out), Some(1.334));
+}
+
+#[test]
+fn ping_parse_windows_output() {
+    let out = "\
+Pinging 192.168.1.1 with 32 bytes of data:
+Reply from 192.168.1.1: bytes=32 time=3ms TTL=64
+";
+    assert!(network::ping::output_indicates_reply(out));
+    assert_eq!(network::ping::parse_ping_time_ms(out), Some(3.0));
+}
+
+#[test]
+fn ping_parse_windows_sub_millisecond() {
+    let out = "Reply from 127.0.0.1: bytes=32 time<1ms TTL=128\n";
+    assert!(network::ping::output_indicates_reply(out));
+    assert_eq!(network::ping::parse_ping_time_ms(out), Some(1.0));
+}
+
+#[test]
+fn ping_parse_localized_output() {
+    // German Windows uses "Zeit=" but keeps "TTL=" and the ms unit.
+    let out = "Antwort von 192.168.1.1: Bytes=32 Zeit=2ms TTL=64\n";
+    assert!(network::ping::output_indicates_reply(out));
+    assert_eq!(network::ping::parse_ping_time_ms(out), Some(2.0));
+}
+
+#[test]
+fn ping_unreachable_is_not_a_reply() {
+    // Windows exits 0 here; the missing TTL= marks it as a failure.
+    let out = "Reply from 192.168.1.10: Destination host unreachable.\n";
+    assert!(!network::ping::output_indicates_reply(out));
+}
+
+#[test]
+fn ping_parse_rejects_unrelated_ms_text() {
+    let out = "1 packets transmitted, 0 received, 100% packet loss, time 0ms\n";
+    assert!(!network::ping::output_indicates_reply(out));
+    assert_eq!(network::ping::parse_ping_time_ms(out), None);
+}
+
+#[tokio::test]
+async fn ping_loopback_succeeds() {
+    let outcome = network::ping::ping_once(Ipv4Addr::LOCALHOST).await;
+    // Loopback answers ICMP where ping is available; otherwise the TCP
+    // fallback sees an immediate refusal, which also proves liveness.
+    assert!(
+        outcome.success,
+        "loopback ping failed via {}: {:?}",
+        outcome.method, outcome.error
+    );
+    println!(
+        "loopback ping method={} latency={:?}",
+        outcome.method, outcome.latency_ms
+    );
+}
+
+#[test]
 fn detect_network_info_or_skip() {
     match network::scan::network_info() {
         Ok(info) => {
