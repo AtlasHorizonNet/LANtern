@@ -19,6 +19,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::get_network_info,
+            commands::list_networks,
             commands::start_scan,
             commands::cancel_scan,
             commands::get_devices,
