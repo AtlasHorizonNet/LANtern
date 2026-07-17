@@ -104,7 +104,18 @@ Versioning is automated with [Conventional Commits](https://www.conventionalcomm
 
 The tracked version lives in `.release-please-manifest.json`; behavior is configured in `release-please-config.json`.
 
+> **Repo setting required for the automated flow:** release-please opens the release PR, so enable **Settings → Actions → General → Workflow permissions → "Allow GitHub Actions to create and approve pull requests."** Without it, release-please can bump versions but cannot open the release PR.
+
 > Note: because the release PR is opened with the default `GITHUB_TOKEN`, CI checks do not run on it. To run CI on release PRs, supply a personal access token (with `contents: write` and `pull-requests: write`) as the `token:` input in `release.yml`.
+
+### Cutting a release by tag (manual path)
+
+You can also release without the release-please PR by pushing a semantic-version tag. This builds all four targets and attaches the installers to a matching GitHub Release:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
 
 ## Roadmap (tracked as GitHub issues)
 
