@@ -163,8 +163,11 @@ function App() {
 
       <header className="top">
         <div className="brand-block">
-          <p className="brand">LANtern</p>
-          <p className="tagline">Light up every device on your local network.</p>
+          <img className="brand-logo" src="/logo.svg" alt="" width={36} height={36} />
+          <div>
+            <p className="brand">LANtern</p>
+            <p className="tagline">Light up every device on your local network.</p>
+          </div>
         </div>
 
         <div className="actions">
