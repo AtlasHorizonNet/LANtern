@@ -1,9 +1,9 @@
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useTransition, type ReactNode } from "react";
 import { listen } from "@tauri-apps/api/event";
 import {
   cancelScan,
   getDevices,
-  getNetworkInfo,
+  listNetworks,
   setDeviceNickname,
   startScan,
 } from "./api";
@@ -14,9 +14,20 @@ import {
   type NetworkInfo,
   type ScanProgress,
 } from "./types";
+import {
+  checkForUpdate,
+  downloadAndInstall,
+  restartApp,
+  type UpdateStatus,
+} from "./updater";
 import "./App.css";
 
+function networkId(n: NetworkInfo): string {
+  return `${n.interfaceName}|${n.localIp}|${n.cidr}`;
+}
+
 function App() {
+  const [networks, setNetworks] = useState<NetworkInfo[]>([]);
   const [network, setNetwork] = useState<NetworkInfo | null>(null);
   const [devices, setDevices] = useState<Device[]>([]);
   const [selected, setSelected] = useState<Device | null>(null);
@@ -24,6 +35,7 @@ function App() {
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nicknameDraft, setNicknameDraft] = useState("");
+  const [update, setUpdate] = useState<UpdateStatus>({ state: "idle" });
   const [, startTransition] = useTransition();
 
   useEffect(() => {
@@ -32,8 +44,10 @@ function App() {
 
     (async () => {
       try {
-        const info = await getNetworkInfo();
-        setNetwork(info);
+        const found = await listNetworks();
+        setNetworks(found);
+        if (found.length) setNetwork(found[0]);
+        else setError("No suitable IPv4 network interface found");
       } catch (e) {
         setError(String(e));
       }
@@ -44,6 +58,11 @@ function App() {
       } catch {
         /* first run */
       }
+
+      // Non-blocking update check on launch; failures are silent.
+      checkForUpdate().then((status) => {
+        if (status.state === "available") setUpdate(status);
+      });
 
       unprogress = await listen<ScanProgress>("scan-progress", (event) => {
         setProgress(event.payload);
@@ -79,7 +98,7 @@ function App() {
     setDevices([]);
     setSelected(null);
     try {
-      const result = await startScan();
+      const result = await startScan(network);
       setNetwork(result.network);
       setDevices([...result.devices].sort(sortDevices));
       if (result.cancelled) {
@@ -95,6 +114,24 @@ function App() {
 
   async function onCancel() {
     await cancelScan();
+  }
+
+  function onSelectNetwork(id: string) {
+    const next = networks.find((n) => networkId(n) === id);
+    if (next) setNetwork(next);
+  }
+
+  async function onCheckUpdate() {
+    setUpdate({ state: "checking" });
+    setUpdate(await checkForUpdate());
+  }
+
+  async function onInstallUpdate() {
+    setUpdate({ state: "downloading", received: 0, total: null });
+    const result = await downloadAndInstall((received, total) => {
+      setUpdate({ state: "downloading", received, total });
+    });
+    setUpdate(result);
   }
 
   async function saveNickname() {
@@ -129,6 +166,15 @@ function App() {
         </div>
 
         <div className="actions">
+          <button
+            className="btn ghost"
+            type="button"
+            onClick={onCheckUpdate}
+            disabled={update.state === "checking" || update.state === "downloading"}
+            title="Check GitHub for a newer version"
+          >
+            {update.state === "checking" ? "Checking…" : "Check for updates"}
+          </button>
           {scanning ? (
             <button className="btn ghost" type="button" onClick={onCancel}>
               Cancel
@@ -145,8 +191,38 @@ function App() {
         </div>
       </header>
 
+      {update.state !== "idle" && update.state !== "checking" ? (
+        <UpdateBanner
+          status={update}
+          onInstall={onInstallUpdate}
+          onRestart={restartApp}
+          onDismiss={() => setUpdate({ state: "idle" })}
+        />
+      ) : null}
+
       <section className="netbar" aria-label="Network summary">
-        <NetStat label="Interface" value={network?.interfaceName ?? "—"} />
+        <div className="netstat">
+          <span className="netstat-label">Interface</span>
+          {networks.length > 1 ? (
+            <select
+              className="netstat-select"
+              value={network ? networkId(network) : ""}
+              onChange={(e) => onSelectNetwork(e.target.value)}
+              disabled={scanning}
+              aria-label="Select network interface to scan"
+            >
+              {networks.map((n) => (
+                <option key={networkId(n)} value={networkId(n)}>
+                  {n.interfaceName} — {n.localIp} ({n.cidr})
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span className="netstat-value">
+              {network?.interfaceName ?? "—"}
+            </span>
+          )}
+        </div>
         <NetStat label="Your IP" value={network?.localIp ?? "—"} mono />
         <NetStat label="Subnet" value={network?.cidr ?? "—"} mono />
         <NetStat label="Gateway" value={network?.gateway ?? "—"} mono />
@@ -292,6 +368,83 @@ function Detail({
     <div>
       <dt>{label}</dt>
       <dd className={mono ? "mono" : undefined}>{value}</dd>
+    </div>
+  );
+}
+
+function UpdateBanner({
+  status,
+  onInstall,
+  onRestart,
+  onDismiss,
+}: {
+  status: UpdateStatus;
+  onInstall: () => void;
+  onRestart: () => void;
+  onDismiss: () => void;
+}) {
+  let body: ReactNode = null;
+  let tone = "info";
+
+  switch (status.state) {
+    case "up-to-date":
+      body = <span>LANtern is up to date.</span>;
+      break;
+    case "available":
+      body = (
+        <>
+          <span>
+            Version <strong>{status.version}</strong> is available.
+          </span>
+          <button className="btn primary small" type="button" onClick={onInstall}>
+            Download &amp; install
+          </button>
+        </>
+      );
+      break;
+    case "downloading": {
+      const pct =
+        status.total && status.total > 0
+          ? Math.min(100, Math.round((status.received / status.total) * 100))
+          : null;
+      body = (
+        <span>
+          Downloading update…{pct !== null ? ` ${pct}%` : ""}
+        </span>
+      );
+      break;
+    }
+    case "installed":
+      body = (
+        <>
+          <span>Update installed. Restart to finish.</span>
+          <button className="btn primary small" type="button" onClick={onRestart}>
+            Restart now
+          </button>
+        </>
+      );
+      break;
+    case "error":
+      tone = "warn";
+      body = <span>Update failed: {status.message}</span>;
+      break;
+    default:
+      return null;
+  }
+
+  return (
+    <div className={`update-banner ${tone}`} role="status">
+      {body}
+      {status.state !== "downloading" ? (
+        <button
+          className="btn ghost small"
+          type="button"
+          onClick={onDismiss}
+          aria-label="Dismiss update notice"
+        >
+          Dismiss
+        </button>
+      ) : null}
     </div>
   );
 }
