@@ -216,6 +216,101 @@ fn device_store_persists_nicknames_and_devices() {
 }
 
 #[test]
+fn sanitize_network_normalizes_valid_selection() {
+    let info = NetworkInfo {
+        interface_name: "eth1".into(),
+        // Deliberately un-normalized CIDR (host address instead of network).
+        cidr: "192.168.5.77/24".into(),
+        local_ip: "192.168.5.77".into(),
+        prefix: 24,
+        gateway: None,
+        host_count: 0,
+    };
+    let out = network::interfaces::sanitize_network(info).unwrap();
+    assert_eq!(out.cidr, "192.168.5.0/24");
+    assert_eq!(out.prefix, 24);
+    assert_eq!(out.host_count, 254);
+    assert_eq!(out.gateway.as_deref(), Some("192.168.5.1"));
+    assert_eq!(out.interface_name, "eth1");
+}
+
+#[test]
+fn sanitize_network_keeps_valid_gateway() {
+    let info = NetworkInfo {
+        interface_name: "eth0".into(),
+        cidr: "10.1.2.0/24".into(),
+        local_ip: "10.1.2.30".into(),
+        prefix: 24,
+        gateway: Some("10.1.2.254".into()),
+        host_count: 254,
+    };
+    let out = network::interfaces::sanitize_network(info).unwrap();
+    assert_eq!(out.gateway.as_deref(), Some("10.1.2.254"));
+}
+
+#[test]
+fn sanitize_network_replaces_foreign_gateway() {
+    let info = NetworkInfo {
+        interface_name: "eth0".into(),
+        cidr: "10.1.2.0/24".into(),
+        local_ip: "10.1.2.30".into(),
+        prefix: 24,
+        gateway: Some("192.168.1.1".into()),
+        host_count: 254,
+    };
+    let out = network::interfaces::sanitize_network(info).unwrap();
+    // Gateway outside the subnet is discarded in favor of the convention guess.
+    assert_eq!(out.gateway.as_deref(), Some("10.1.2.1"));
+}
+
+#[test]
+fn sanitize_network_rejects_ip_outside_subnet() {
+    let info = NetworkInfo {
+        interface_name: "eth0".into(),
+        cidr: "192.168.1.0/24".into(),
+        local_ip: "10.0.0.5".into(),
+        prefix: 24,
+        gateway: None,
+        host_count: 254,
+    };
+    let err = network::interfaces::sanitize_network(info).unwrap_err();
+    assert!(err.contains("not inside"), "unexpected error: {err}");
+}
+
+#[test]
+fn sanitize_network_rejects_bad_cidr() {
+    let info = NetworkInfo {
+        interface_name: "eth0".into(),
+        cidr: "not-a-cidr".into(),
+        local_ip: "10.0.0.5".into(),
+        prefix: 24,
+        gateway: None,
+        host_count: 0,
+    };
+    assert!(network::interfaces::sanitize_network(info).is_err());
+}
+
+#[test]
+fn list_networks_contains_detected_default() {
+    match (
+        network::interfaces::list_networks(),
+        network::interfaces::detect_network(),
+    ) {
+        (Ok(list), Ok(default)) => {
+            assert!(!list.is_empty());
+            // detect_network must be the first (best) candidate.
+            assert_eq!(list[0].cidr, default.cidr);
+            assert_eq!(list[0].local_ip, default.local_ip);
+            for n in &list {
+                assert!(n.cidr.contains('/'));
+                assert!((8..=30).contains(&n.prefix));
+            }
+        }
+        (Err(e), _) | (_, Err(e)) => eprintln!("skipping interface assertions: {e}"),
+    }
+}
+
+#[test]
 fn detect_network_info_or_skip() {
     match network::scan::network_info() {
         Ok(info) => {
