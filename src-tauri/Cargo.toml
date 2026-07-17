@@ -1,6 +1,6 @@
 [package]
 name = "lantern"
-version = "0.2.1"
+version = "0.3.0"
 description = "LANtern — local network device scanner"
 authors = ["you"]
 edition = "2021"
