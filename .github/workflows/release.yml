@@ -3,6 +3,7 @@ name: Release
 on:
   push:
     branches: [main]
+    tags: ['v*']
   workflow_dispatch:
 
 permissions:
@@ -16,6 +17,8 @@ concurrency:
 jobs:
   release-please:
     name: Prepare release (semantic versioning)
+    # Version management only runs for branch pushes / manual runs, not tags.
+    if: startsWith(github.ref, 'refs/tags/') == false
     runs-on: ubuntu-latest
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
@@ -32,7 +35,10 @@ jobs:
   build:
     name: Build & attach ${{ matrix.name }}
     needs: release-please
-    if: needs.release-please.outputs.release_created == 'true'
+    # Build when release-please cuts a release, OR when a vX.Y.Z tag is pushed
+    # directly (a manual release path that does not depend on release-please
+    # being allowed to open pull requests).
+    if: ${{ always() && (needs.release-please.outputs.release_created == 'true' || startsWith(github.ref, 'refs/tags/v')) }}
     strategy:
       fail-fast: false
       matrix:
@@ -92,8 +98,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ needs.release-please.outputs.tag_name }}
-          releaseName: LANtern ${{ needs.release-please.outputs.tag_name }}
+          tagName: ${{ needs.release-please.outputs.tag_name || github.ref_name }}
+          releaseName: LANtern ${{ needs.release-please.outputs.tag_name || github.ref_name }}
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
