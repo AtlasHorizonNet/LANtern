@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.2](https://github.com/AtlasHorizonNet/LANtern/compare/v0.3.1...v0.3.2) (2026-07-17)
+
+
+### Bug Fixes
+
+* align device-list scrollbar with the window edge ([1b7a3a1](https://github.com/AtlasHorizonNet/LANtern/commit/1b7a3a13d0bc905e0ab51e7eb922e55f2284db6c)), closes [#22](https://github.com/AtlasHorizonNet/LANtern/issues/22)
+* keep interface dropdown text clear of the caret ([95c5bf4](https://github.com/AtlasHorizonNet/LANtern/commit/95c5bf426bdce53570a071e1f7fa8fbb623d1bea)), closes [#21](https://github.com/AtlasHorizonNet/LANtern/issues/21)
+* publish a complete latest.json after multi-platform builds ([743a389](https://github.com/AtlasHorizonNet/LANtern/commit/743a3895d436ad2e855e333d5b4ad36b2d28e9dd)), closes [#19](https://github.com/AtlasHorizonNet/LANtern/issues/19)
+* resolve open UI, updater, and Windows icon bugs ([b0ec337](https://github.com/AtlasHorizonNet/LANtern/commit/b0ec3372cad1557d7380ff1bd131f9c4219de2b0))
+* set NSIS installerIcon to the LANtern .ico ([f8816ce](https://github.com/AtlasHorizonNet/LANtern/commit/f8816ceb6ea8d705834e9cc5c960683563cc072a)), closes [#26](https://github.com/AtlasHorizonNet/LANtern/issues/26)
+* use bundled LANtern icon for the Windows taskbar ([9eee67f](https://github.com/AtlasHorizonNet/LANtern/commit/9eee67faa335ff1a3cc56bd06ea470151319b010)), closes [#20](https://github.com/AtlasHorizonNet/LANtern/issues/20)
+
 ## [0.3.1](https://github.com/AtlasHorizonNet/LANtern/compare/v0.3.0...v0.3.1) (2026-07-17)
 
 
