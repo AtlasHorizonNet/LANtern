@@ -47,8 +47,23 @@ input {
   display: grid;
   grid-template-rows: auto auto auto auto 1fr;
   gap: 0;
-  padding: 28px 32px 20px;
+  /* No right padding on the shell so scrollbars sit flush with the window edge. */
+  padding: 28px 0 20px 32px;
   isolation: isolate;
+}
+
+/* Content rows keep the previous right inset; the workspace scrolls full-bleed. */
+.top,
+.netbar,
+.update-banner,
+.progress-wrap,
+.error,
+.detail-pane {
+  padding-right: 32px;
+}
+
+.list-pane {
+  padding-right: 0;
 }
 
 .atmosphere {
@@ -364,6 +379,7 @@ input {
   align-items: baseline;
   justify-content: space-between;
   margin-bottom: 10px;
+  padding-right: 32px;
 }
 
 .list-head h2,
@@ -541,8 +557,18 @@ input {
 
 @media (max-width: 820px) {
   .app {
-    padding: 18px 16px 12px;
+    padding: 18px 0 12px 16px;
     overflow: auto;
+  }
+
+  .top,
+  .netbar,
+  .update-banner,
+  .progress-wrap,
+  .error,
+  .detail-pane,
+  .list-head {
+    padding-right: 16px;
   }
 
   body {
