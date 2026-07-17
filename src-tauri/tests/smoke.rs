@@ -1,0 +1,250 @@
+//! Unit and integration tests for LANtern helpers (no GUI required).
+
+use lantern_lib::network::{self, Device, NetworkInfo};
+use lantern_lib::store::AppState;
+use std::net::Ipv4Addr;
+use std::time::{SystemTime, UNIX_EPOCH};
+
+fn sample_network(cidr: &str, local_ip: &str, host_count: u32) -> NetworkInfo {
+    let prefix: u8 = cidr.split('/').nth(1).unwrap().parse().unwrap();
+    NetworkInfo {
+        interface_name: "eth0".into(),
+        local_ip: local_ip.into(),
+        cidr: cidr.into(),
+        prefix,
+        gateway: Some("192.168.1.1".into()),
+        host_count,
+    }
+}
+
+fn sample_device(ip: &str, mac: Option<&str>) -> Device {
+    Device {
+        ip: ip.into(),
+        mac: mac.map(str::to_string),
+        hostname: None,
+        vendor: None,
+        nickname: None,
+        online: true,
+        last_seen: SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64,
+        is_gateway: false,
+        is_local: false,
+    }
+}
+
+#[test]
+fn oui_looks_up_known_xerox_prefix() {
+    let vendor = network::oui::lookup_vendor("00:00:01:aa:bb:cc");
+    assert!(vendor.is_some(), "expected OUI hit for 00:00:01");
+}
+
+#[test]
+fn oui_accepts_dashed_and_bare_macs() {
+    let a = network::oui::lookup_vendor("00-00-01-aa-bb-cc");
+    let b = network::oui::lookup_vendor("000001aabbcc");
+    assert_eq!(a, b);
+    assert!(a.is_some());
+}
+
+#[test]
+fn oui_rejects_short_mac() {
+    assert!(network::oui::lookup_vendor("00:00").is_none());
+}
+
+#[test]
+fn normalize_mac_formats() {
+    assert_eq!(
+        network::neighbors::normalize_mac("aa-bb-cc-dd-ee-ff").as_deref(),
+        Some("AA:BB:CC:DD:EE:FF")
+    );
+    assert_eq!(
+        network::neighbors::normalize_mac("aabbccddeeff").as_deref(),
+        Some("AA:BB:CC:DD:EE:FF")
+    );
+    assert!(network::neighbors::normalize_mac("00:00:00:00:00:00").is_none());
+    assert!(network::neighbors::normalize_mac("not-a-mac").is_none());
+}
+
+#[test]
+fn parse_proc_arp_skips_incomplete_entries() {
+    let text = "\
+IP address       HW type     Flags       HW address            Mask     Device
+192.168.1.1      0x1         0x2         aa:bb:cc:dd:ee:ff     *        eth0
+192.168.1.2      0x1         0x0         00:00:00:00:00:00     *        eth0
+";
+    let map = network::neighbors::parse_proc_arp(text);
+    assert_eq!(map.len(), 1);
+    assert_eq!(map.get("192.168.1.1").unwrap(), "AA:BB:CC:DD:EE:FF");
+}
+
+#[test]
+fn parse_ip_neigh_extracts_lladdr() {
+    let text = "\
+192.168.1.1 dev eth0 lladdr aa:bb:cc:dd:ee:01 REACHABLE
+192.168.1.5 dev eth0 FAILED
+fe80::1 dev eth0 lladdr aa:bb:cc:dd:ee:02 STALE
+";
+    let map = network::neighbors::parse_ip_neigh(text);
+    assert_eq!(map.len(), 1);
+    assert_eq!(map.get("192.168.1.1").unwrap(), "AA:BB:CC:DD:EE:01");
+}
+
+#[test]
+fn parse_bsd_arp_extracts_paren_ips() {
+    let text = "? (192.168.1.1) at aa:bb:cc:dd:ee:ff on en0 ifscope [ethernet]\n";
+    let map = network::neighbors::parse_bsd_arp(text);
+    assert_eq!(map.get("192.168.1.1").unwrap(), "AA:BB:CC:DD:EE:FF");
+}
+
+#[test]
+fn parse_windows_arp_table() {
+    let text = "\
+Interface: 192.168.1.10 --- 0xb
+  Internet Address      Physical Address      Type
+  192.168.1.1           aa-bb-cc-dd-ee-ff     dynamic
+  192.168.1.255         ff-ff-ff-ff-ff-ff     static
+";
+    let map = network::neighbors::parse_windows_arp(text);
+    assert_eq!(map.get("192.168.1.1").unwrap(), "AA:BB:CC:DD:EE:FF");
+    assert_eq!(map.get("192.168.1.255").unwrap(), "FF:FF:FF:FF:FF:FF");
+}
+
+#[test]
+fn mask_to_prefix_common_masks() {
+    assert_eq!(
+        network::interfaces::mask_to_prefix(Ipv4Addr::new(255, 255, 255, 0)),
+        24
+    );
+    assert_eq!(
+        network::interfaces::mask_to_prefix(Ipv4Addr::new(255, 255, 0, 0)),
+        16
+    );
+    assert_eq!(
+        network::interfaces::mask_to_prefix(Ipv4Addr::new(255, 255, 255, 252)),
+        30
+    );
+}
+
+#[test]
+fn rfc1918_classification() {
+    assert!(network::interfaces::is_rfc1918(Ipv4Addr::new(10, 0, 0, 1)));
+    assert!(network::interfaces::is_rfc1918(Ipv4Addr::new(
+        172, 16, 0, 1
+    )));
+    assert!(network::interfaces::is_rfc1918(Ipv4Addr::new(
+        192, 168, 1, 1
+    )));
+    assert!(!network::interfaces::is_rfc1918(Ipv4Addr::new(8, 8, 8, 8)));
+    assert!(!network::interfaces::is_rfc1918(Ipv4Addr::new(
+        172, 15, 0, 1
+    )));
+}
+
+#[test]
+fn guess_gateway_is_first_usable_host() {
+    let net: ipnetwork::Ipv4Network = "192.168.1.0/24".parse().unwrap();
+    assert_eq!(
+        network::interfaces::guess_gateway(net),
+        Some(Ipv4Addr::new(192, 168, 1, 1))
+    );
+}
+
+#[test]
+fn hosts_to_scan_excludes_network_and_broadcast() {
+    let info = sample_network("192.168.1.0/30", "192.168.1.2", 2);
+    let hosts = network::interfaces::hosts_to_scan(&info).unwrap();
+    assert_eq!(hosts.len(), 2);
+    assert!(!hosts.contains(&Ipv4Addr::new(192, 168, 1, 0)));
+    assert!(!hosts.contains(&Ipv4Addr::new(192, 168, 1, 3)));
+}
+
+#[test]
+fn hosts_to_scan_rejects_oversized_subnets() {
+    let info = sample_network("10.0.0.0/16", "10.0.0.1", 65_534);
+    let err = network::interfaces::hosts_to_scan(&info).unwrap_err();
+    assert!(err.contains("max"));
+}
+
+#[test]
+fn device_store_persists_nicknames_and_devices() {
+    let dir = std::env::temp_dir().join(format!(
+        "lantern-test-{}",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let path = dir.join("devices.json");
+    let state = AppState::load(path.clone());
+
+    let device = sample_device("192.168.1.20", Some("AA:BB:CC:DD:EE:FF"));
+    state.upsert_devices(std::slice::from_ref(&device));
+    state
+        .set_nickname("AA:BB:CC:DD:EE:FF", Some("  Living room TV  ".into()))
+        .unwrap();
+
+    let nicknames = state.nicknames();
+    assert_eq!(
+        nicknames.get("AA:BB:CC:DD:EE:FF").map(String::as_str),
+        Some("Living room TV")
+    );
+
+    let listed = state.all_devices();
+    assert_eq!(listed.len(), 1);
+    assert_eq!(listed[0].nickname.as_deref(), Some("Living room TV"));
+
+    // Reload from disk
+    let reloaded = AppState::load(path);
+    assert_eq!(
+        reloaded
+            .nicknames()
+            .get("AA:BB:CC:DD:EE:FF")
+            .map(String::as_str),
+        Some("Living room TV")
+    );
+    assert_eq!(reloaded.all_devices().len(), 1);
+
+    // Clearing nickname
+    reloaded
+        .set_nickname("AA:BB:CC:DD:EE:FF", Some("".into()))
+        .unwrap();
+    assert!(reloaded.nicknames().is_empty());
+
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn detect_network_info_or_skip() {
+    match network::scan::network_info() {
+        Ok(info) => {
+            assert!(!info.local_ip.is_empty());
+            assert!(info.cidr.contains('/'));
+            assert!((8..=30).contains(&info.prefix));
+        }
+        Err(e) => eprintln!("skipping interface assertion: {e}"),
+    }
+}
+
+#[test]
+fn neighbors_readable_without_panic() {
+    let map = network::neighbors::read_neighbors();
+    println!("neighbor entries: {}", map.len());
+}
+
+#[tokio::test]
+async fn local_udp_seed_smoke() {
+    match network::scan::network_info() {
+        Ok(info) => {
+            let ip: Ipv4Addr = info.local_ip.parse().expect("local ip");
+            let addr = std::net::SocketAddr::from((ip, 9));
+            let sock = tokio::net::UdpSocket::bind("0.0.0.0:0").await;
+            assert!(sock.is_ok(), "udp bind should work");
+            if let Ok(s) = sock {
+                let _ = s.send_to(&[0u8], addr).await;
+            }
+        }
+        Err(e) => eprintln!("no network: {e}"),
+    }
+}
