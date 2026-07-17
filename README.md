@@ -148,3 +148,7 @@ If these issues are not yet on the repo, create them with:
 ```bash
 ./scripts/create-roadmap-issues.sh
 ```
+
+## License
+
+LANtern is free software licensed under the [GNU General Public License v3.0 or later](LICENSE) (GPL-3.0-or-later).

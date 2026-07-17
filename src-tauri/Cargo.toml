@@ -2,7 +2,8 @@
 name = "lantern"
 version = "0.3.0"
 description = "LANtern — local network device scanner"
-authors = ["you"]
+authors = ["Nick Trochalakis"]
+license = "GPL-3.0-or-later"
 edition = "2021"
 
 [lib]
