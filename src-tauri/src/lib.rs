@@ -1,6 +1,6 @@
 mod commands;
 pub mod network;
-mod store;
+pub mod store;
 
 use store::AppState;
 use tauri::Manager;
