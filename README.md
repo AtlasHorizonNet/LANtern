@@ -1,4 +1,4 @@
-# Scanapp
+# LANtern
 
 A free, local-first desktop LAN scanner built with **Tauri 2**, **Rust**, and **React**. Discover devices on your network and see IP, hostname, MAC, vendor, and online status — no account, no subscription.
 
@@ -79,9 +79,16 @@ These cover OUI lookup, MAC normalization, ARP table parsers, subnet helpers, an
 
 Frontend UI tests are not included yet — most of the product risk is in the Rust network layer.
 
-## Roadmap (not in this release)
+## Roadmap (tracked as GitHub issues)
 
 - Ping tool
 - TCP port scan
 - Wake-on-LAN
+- DHCP test tool
 - Mobile (Tauri)
+
+If these issues are not yet on the repo, create them with:
+
+```bash
+./scripts/create-roadmap-issues.sh
+```

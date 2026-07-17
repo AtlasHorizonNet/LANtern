@@ -124,8 +124,8 @@ function App() {
 
       <header className="top">
         <div className="brand-block">
-          <p className="brand">Scanapp</p>
-          <p className="tagline">See every device on your local network.</p>
+          <p className="brand">LANtern</p>
+          <p className="tagline">Light up every device on your local network.</p>
         </div>
 
         <div className="actions">
