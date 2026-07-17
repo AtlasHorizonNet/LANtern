@@ -1,0 +1,29 @@
+mod commands;
+pub mod network;
+mod store;
+
+use store::AppState;
+use tauri::Manager;
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    tauri::Builder::default()
+        .setup(|app| {
+            let path = app
+                .path()
+                .app_data_dir()
+                .map(|p| p.join("devices.json"))
+                .unwrap_or_else(|_| std::path::PathBuf::from("devices.json"));
+            app.manage(AppState::load(path));
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            commands::get_network_info,
+            commands::start_scan,
+            commands::cancel_scan,
+            commands::get_devices,
+            commands::set_device_nickname,
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}
