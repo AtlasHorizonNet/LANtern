@@ -83,11 +83,9 @@ pub async fn run_scan(
     let neighbor_map = neighbors::read_neighbors();
 
     // Include any ARP-known hosts on this subnet even if TCP failed (phones, IoT, etc.)
-    let cidr: ipnetwork::Ipv4Network = network
-        .cidr
-        .parse()
-        .map_err(|e| format!("bad cidr: {e}"))?;
-    for (ip_str, _) in &neighbor_map {
+    let cidr: ipnetwork::Ipv4Network =
+        network.cidr.parse().map_err(|e| format!("bad cidr: {e}"))?;
+    for ip_str in neighbor_map.keys() {
         if let Ok(ip) = ip_str.parse::<Ipv4Addr>() {
             if cidr.contains(ip) {
                 live_set.insert(ip);
@@ -125,10 +123,8 @@ pub async fn run_scan(
         }
 
         let ip_str = ip.to_string();
-        let mac = neighbor_map.get(&ip_str).cloned().or_else(|| {
-            // Local machine MAC from interface is harder; leave blank if unknown
-            None
-        });
+        // Local machine MAC from interface is harder; leave blank if unknown
+        let mac = neighbor_map.get(&ip_str).cloned();
         let vendor = mac.as_ref().and_then(|m| oui::lookup_vendor(m));
         let hostname = tokio::task::spawn_blocking(move || {
             dns::reverse_lookup_timed(ip, Duration::from_millis(500))
@@ -166,10 +162,7 @@ pub async fn run_scan(
             let mut offline = prev;
             offline.online = false;
             // refresh nickname if updated
-            let key = offline
-                .mac
-                .clone()
-                .unwrap_or_else(|| offline.ip.clone());
+            let key = offline.mac.clone().unwrap_or_else(|| offline.ip.clone());
             if let Some(n) = nicknames.get(&key).or_else(|| nicknames.get(&offline.ip)) {
                 offline.nickname = Some(n.clone());
             }
@@ -240,7 +233,7 @@ async fn probe_hosts(
             let alive = tcp_probe(ip).await;
 
             let n = checked.fetch_add(1, Ordering::Relaxed) + 1;
-            if n % 8 == 0 || n == total {
+            if n.is_multiple_of(8) || n == total {
                 emit_progress(
                     &app,
                     ScanProgress {
