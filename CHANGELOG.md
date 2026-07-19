@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.7.0](https://github.com/AtlasHorizonNet/LANtern/compare/v0.6.0...v0.7.0) (2026-07-19)
+
+
+### Features
+
+* split Scan controls from Devices results ([d0f16c5](https://github.com/AtlasHorizonNet/LANtern/commit/d0f16c50476e3bd1773538941ae73a66df7f4773))
+* split Scan controls from Devices results ([3689251](https://github.com/AtlasHorizonNet/LANtern/commit/3689251c8f09b4cc764e7e127b848eaf2a30cba5))
+* split Scan controls from Devices results ([#41](https://github.com/AtlasHorizonNet/LANtern/issues/41)) ([d0f16c5](https://github.com/AtlasHorizonNet/LANtern/commit/d0f16c50476e3bd1773538941ae73a66df7f4773))
+* TCP port scan and Wake-on-LAN ([#43](https://github.com/AtlasHorizonNet/LANtern/issues/43)) ([ca142b6](https://github.com/AtlasHorizonNet/LANtern/commit/ca142b66375276de34fce94e7b36223727d2714b))
+
 ## [0.6.0](https://github.com/AtlasHorizonNet/LANtern/compare/v0.5.0...v0.6.0) (2026-07-19)
 
 
