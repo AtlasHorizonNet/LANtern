@@ -52,9 +52,9 @@ pub async fn wake_on_lan(mac: &str, broadcast: Option<&str>) -> Result<WakeResul
 
     Ok(WakeResult {
         success: true,
+        message: format!("Magic packet sent to {normalized} via {bcast}"),
         mac: normalized,
         broadcast: bcast.to_string(),
-        message: format!("Magic packet sent to {normalized} via {bcast}"),
     })
 }
 
