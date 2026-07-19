@@ -100,7 +100,13 @@ export type DhcpDiscoverResult = {
   error: string | null;
 };
 
-export type AppPage = "devices" | "dns" | "dhcp" | "history" | "settings";
+export type AppPage =
+  | "scan"
+  | "devices"
+  | "dns"
+  | "dhcp"
+  | "history"
+  | "settings";
 
 export function deviceKey(device: Device): string {
   return device.mac ?? device.ip;
