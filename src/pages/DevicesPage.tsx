@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { pingDevice, setDeviceNickname } from "../api";
+import {
+  pingDevice,
+  scanPorts,
+  setDeviceNickname,
+  wakeOnLan,
+} from "../api";
 import { useScanSession } from "../scanSession";
 import {
   deviceKey,
@@ -7,6 +12,9 @@ import {
   networkLabel,
   type Device,
   type PingOutcome,
+  type PortScanResult,
+  type PortState,
+  type WakeResult,
 } from "../types";
 
 export function DevicesPage() {
@@ -176,6 +184,8 @@ export function DevicesPage() {
             </dl>
 
             <PingPanel ip={selected.ip} />
+            <PortScanPanel ip={selected.ip} />
+            <WakePanel mac={selected.mac} />
 
             <label className="nick-field">
               <span>Nickname</span>
@@ -338,6 +348,182 @@ function PingPanel({ ip }: { ip: string }) {
             : "Measure latency and packet loss for this device."}
         </p>
       )}
+    </div>
+  );
+}
+
+function PortScanPanel({ ip }: { ip: string }) {
+  const [portsSpec, setPortsSpec] = useState("");
+  const [scanning, setScanning] = useState(false);
+  const [result, setResult] = useState<PortScanResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<"all" | PortState>("all");
+
+  useEffect(() => {
+    setResult(null);
+    setError(null);
+    setScanning(false);
+    setFilter("all");
+  }, [ip]);
+
+  async function runScan() {
+    setScanning(true);
+    setError(null);
+    try {
+      const next = await scanPorts(ip, portsSpec.trim());
+      setResult(next);
+      setFilter("all");
+    } catch (e) {
+      setResult(null);
+      setError(String(e));
+    } finally {
+      setScanning(false);
+    }
+  }
+
+  const visible = result
+    ? filter === "all"
+      ? result.ports
+      : result.ports.filter((p) => p.state === filter)
+    : [];
+
+  return (
+    <div className="tool-panel">
+      <div className="ping-head">
+        <h3>Port scan</h3>
+        <button
+          className="btn primary small"
+          type="button"
+          onClick={runScan}
+          disabled={scanning}
+        >
+          {scanning ? "Scanning…" : "Scan"}
+        </button>
+      </div>
+
+      <label className="tool-field">
+        <span>Ports</span>
+        <input
+          value={portsSpec}
+          onChange={(e) => setPortsSpec(e.target.value)}
+          placeholder="Defaults (22, 80, 443…) or 22,80,8000-8010"
+          disabled={scanning}
+        />
+      </label>
+
+      {error ? <p className="error tool-msg">{error}</p> : null}
+
+      {result ? (
+        <>
+          <div className="ping-stats">
+            <span>
+              Open: <strong>{result.openCount}</strong>
+            </span>
+            <span>
+              Scanned: <strong>{result.scanned}</strong>
+            </span>
+            <span className="muted">{result.durationMs.toFixed(0)} ms</span>
+          </div>
+          <div className="port-filter" role="group" aria-label="Filter ports">
+            {(["all", "open", "closed", "filtered"] as const).map((key) => (
+              <button
+                key={key}
+                type="button"
+                className={`btn ghost small ${filter === key ? "active-filter" : ""}`}
+                onClick={() => setFilter(key)}
+              >
+                {key === "all" ? "All" : key}
+              </button>
+            ))}
+          </div>
+          <ul className="port-list" aria-label="Port scan results">
+            {visible.map((p) => (
+              <li key={p.port} className={`port-row state-${p.state}`}>
+                <span className="mono port-num">{p.port}</span>
+                <span className="port-svc">{p.service ?? "—"}</span>
+                <span className={`port-state state-${p.state}`}>{p.state}</span>
+                <span className="muted mono port-lat">
+                  {p.latencyMs != null
+                    ? `${p.latencyMs < 10 ? p.latencyMs.toFixed(1) : p.latencyMs.toFixed(0)} ms`
+                    : "—"}
+                </span>
+              </li>
+            ))}
+            {visible.length === 0 ? (
+              <li className="muted port-empty">No ports match this filter.</li>
+            ) : null}
+          </ul>
+        </>
+      ) : (
+        <p className="muted ping-hint">
+          TCP connect scan of common ports by default. Enter a list or range for
+          a custom scan.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function WakePanel({ mac }: { mac: string | null }) {
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<WakeResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setResult(null);
+    setError(null);
+    setBusy(false);
+  }, [mac]);
+
+  async function sendWake() {
+    if (!mac) return;
+    setBusy(true);
+    setError(null);
+    setResult(null);
+    try {
+      const next = await wakeOnLan(mac);
+      setResult(next);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="tool-panel">
+      <div className="ping-head">
+        <h3>Wake-on-LAN</h3>
+        <button
+          className="btn primary small"
+          type="button"
+          onClick={sendWake}
+          disabled={!mac || busy}
+          title={mac ? `Send magic packet to ${mac}` : "MAC address required"}
+        >
+          {busy ? "Sending…" : "Wake"}
+        </button>
+      </div>
+
+      {!mac ? (
+        <p className="muted ping-hint">
+          Needs a MAC address from the ARP/neighbor table. Re-scan while the
+          host is online to learn it.
+        </p>
+      ) : (
+        <p className="muted ping-hint">
+          Broadcasts a magic packet for{" "}
+          <span className="mono">{mac}</span>. The target NIC must support WoL
+          and have it enabled in firmware/OS power settings.
+        </p>
+      )}
+
+      {error ? <p className="error tool-msg">{error}</p> : null}
+      {result ? (
+        <p className={`tool-msg ${result.success ? "ok-msg" : "error"}`}>
+          {result.message}
+        </p>
+      ) : null}
     </div>
   );
 }

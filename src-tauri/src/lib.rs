@@ -49,6 +49,8 @@ pub fn run() {
             commands::dns_reverse,
             commands::dhcp_discover,
             commands::dhcp_privilege_note,
+            commands::scan_ports,
+            commands::wake_on_lan,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

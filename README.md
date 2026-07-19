@@ -11,6 +11,8 @@ A free, local-first desktop LAN scanner built with **Tauri 2**, **Rust**, and **
 - Detect your active IPv4 interface, subnet, and gateway
 - Choose which interface/IP to scan when the machine has several
 - Ping tool: per-device latency, packet loss, and session history
+- TCP port scan: common ports by default, custom lists/ranges, open/closed/filtered
+- Wake-on-LAN: send magic packets to devices with a known MAC
 - Built-in self-update: checks GitHub releases and installs updates in-app
 - Concurrent host discovery (UDP ARP-seed + TCP connect probe)
 - MAC addresses from the OS neighbor/ARP table
@@ -74,6 +76,19 @@ Installers appear under `src-tauri/target/release/bundle/`.
 Select a device and press **Start** in the Ping section of the detail pane. LANtern sends one probe per second and shows the last/average latency, packet loss, and a bar history for the session (last 20 probes).
 
 **How it works & permissions:** each probe invokes the operating system's `ping` binary (one echo request), which is unprivileged on Linux, macOS, and Windows — the app never needs to run as admin for this. If the `ping` binary is unavailable or produces no reply (e.g. stripped-down containers, ICMP-filtered networks), LANtern falls back to a timed TCP connect against common ports; a completed or refused connection both prove the host is up and give a latency figure. The method used (`icmp` or `tcp`) is shown next to the reply counter.
+
+## Port scan
+
+In a device’s detail pane, use **Port scan** to run a TCP connect scan. Leave the ports field empty for a built-in common-services set (SSH, HTTP/S, SMB, RDP, databases, etc.), or enter a custom expression such as `22,80,443` or `8000-8010`. Results show **open**, **closed** (connection refused), or **filtered** (timeout / no response). Concurrency and per-port timeouts are bounded so the UI stays responsive.
+
+## Wake-on-LAN
+
+When a device has a known MAC address, **Wake** broadcasts a magic packet (UDP ports 9 and 7) to the LAN broadcast address. Sending the packet does not guarantee the host powers on:
+
+- The NIC must support Wake-on-LAN (wired Ethernet is most reliable; many Wi‑Fi adapters do not).
+- WoL is usually disabled until enabled in BIOS/UEFI and in the OS power / network adapter settings (“Allow this device to wake the computer”).
+- Some routers or AP isolation modes drop directed/broadcast WoL frames.
+- The target must be asleep or soft-powered-off in a state that still powers the NIC; a full power cut will not wake.
 
 ## Data storage
 
@@ -153,11 +168,7 @@ git push origin v0.1.0
 
 ## Roadmap (tracked as GitHub issues)
 
-- Ping tool
-- TCP port scan
-- Wake-on-LAN
-- DHCP test tool
-- Mobile (Tauri)
+- Mobile support via Tauri
 
 ## License
 

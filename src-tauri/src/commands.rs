@@ -3,7 +3,9 @@ use crate::network::dhcp::{self, DhcpDiscoverResult};
 use crate::network::dns::{self, DnsQueryResult};
 use crate::network::identity;
 use crate::network::ping::{self, PingOutcome};
+use crate::network::portscan::{self, PortScanResult};
 use crate::network::scan;
+use crate::network::wol::{self, WakeResult};
 use crate::network::{Device, NetworkInfo, ScanResult};
 use crate::store::AppState;
 use std::net::Ipv4Addr;
@@ -250,4 +252,21 @@ pub async fn dhcp_discover(
 #[tauri::command]
 pub fn dhcp_privilege_note() -> String {
     dhcp::privilege_note()
+}
+
+#[tauri::command]
+pub async fn scan_ports(ip: String, ports: String) -> Result<PortScanResult, String> {
+    let addr: Ipv4Addr = ip
+        .parse()
+        .map_err(|e| format!("Invalid IPv4 address {ip}: {e}"))?;
+    let parsed = portscan::parse_ports_spec(&ports)?;
+    Ok(portscan::scan_ports(addr, parsed).await)
+}
+
+#[tauri::command]
+pub async fn wake_on_lan(
+    mac: String,
+    broadcast: Option<String>,
+) -> Result<WakeResult, String> {
+    wol::wake_on_lan(&mac, broadcast.as_deref()).await
 }

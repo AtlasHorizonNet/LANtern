@@ -5,9 +5,11 @@ import type {
   DnsQueryResult,
   NetworkInfo,
   PingOutcome,
+  PortScanResult,
   ScanResult,
   ScanRunDetail,
   ScanRunSummary,
+  WakeResult,
 } from "./types";
 
 export function getNetworkInfo(): Promise<NetworkInfo> {
@@ -97,4 +99,16 @@ export function dhcpDiscover(
 
 export function dhcpPrivilegeNote(): Promise<string> {
   return invoke("dhcp_privilege_note");
+}
+
+/** Empty `ports` uses the built-in common-port defaults. */
+export function scanPorts(ip: string, ports = ""): Promise<PortScanResult> {
+  return invoke("scan_ports", { ip, ports });
+}
+
+export function wakeOnLan(
+  mac: string,
+  broadcast?: string | null,
+): Promise<WakeResult> {
+  return invoke("wake_on_lan", { mac, broadcast: broadcast ?? null });
 }
