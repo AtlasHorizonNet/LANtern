@@ -505,6 +505,10 @@ input {
   font-size: 0.98rem;
 }
 
+.about-grid .text-link {
+  font-size: inherit;
+}
+
 @keyframes rise {
   from {
     opacity: 0;

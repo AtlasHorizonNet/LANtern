@@ -4,6 +4,7 @@ import {
   type Dispatch,
   type SetStateAction,
 } from "react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { UpdateBanner } from "../components/UpdateBanner";
 import {
   checkForUpdate,
@@ -13,6 +14,8 @@ import {
   type UpdateStatus,
   type VersionInfo,
 } from "../updater";
+
+const SOURCE_URL = "https://github.com/AtlasHorizonNet/LANtern";
 
 export function SettingsPage({
   update,
@@ -54,6 +57,15 @@ export function SettingsPage({
     setUpdate(result);
   }
 
+  async function onOpenSource() {
+    try {
+      await openUrl(SOURCE_URL);
+    } catch {
+      // Fallback when opener is unavailable (e.g. plain web preview).
+      window.open(SOURCE_URL, "_blank", "noopener,noreferrer");
+    }
+  }
+
   return (
     <div className="tool-page">
       <header className="tool-intro">
@@ -89,6 +101,18 @@ export function SettingsPage({
           <div>
             <dt>Last checked</dt>
             <dd>{formatLastChecked(version.lastCheckedAt)}</dd>
+          </div>
+          <div>
+            <dt>Source code</dt>
+            <dd>
+              <button
+                type="button"
+                className="text-link"
+                onClick={onOpenSource}
+              >
+                GitHub
+              </button>
+            </dd>
           </div>
         </dl>
       </section>
