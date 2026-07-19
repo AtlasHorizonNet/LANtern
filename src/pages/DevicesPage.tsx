@@ -7,6 +7,7 @@ import {
 } from "../api";
 import { useScanSession } from "../scanSession";
 import {
+  automaticName,
   deviceKey,
   displayName,
   networkLabel,
@@ -32,26 +33,61 @@ export function DevicesPage() {
   } = useScanSession();
   const [selected, setSelected] = useState<Device | null>(null);
   const [nicknameDraft, setNicknameDraft] = useState("");
+  const [renamingIp, setRenamingIp] = useState<string | null>(null);
+  const [listRenameDraft, setListRenameDraft] = useState("");
+  const listRenameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setSelected(null);
+    setRenamingIp(null);
   }, [network?.fingerprint]);
 
   useEffect(() => {
     setNicknameDraft(selected?.nickname ?? "");
   }, [selected?.ip, selected?.nickname]);
 
+  useEffect(() => {
+    if (renamingIp) listRenameRef.current?.focus();
+  }, [renamingIp]);
+
+  function applyNicknameLocally(device: Device, value: string | null) {
+    setDevices((prev) =>
+      prev.map((d) => (d.ip === device.ip ? { ...d, nickname: value } : d)),
+    );
+    setSelected((s) => (s && s.ip === device.ip ? { ...s, nickname: value } : s));
+    if (renamingIp === device.ip) {
+      setListRenameDraft(value ?? "");
+    }
+    if (selected?.ip === device.ip) {
+      setNicknameDraft(value ?? "");
+    }
+  }
+
+  async function persistCustomName(device: Device, raw: string) {
+    const value = raw.trim() || null;
+    await setDeviceNickname(deviceKey(device), value);
+    applyNicknameLocally(device, value);
+  }
+
   async function saveNickname() {
     if (!selected) return;
-    const key = deviceKey(selected);
-    const value = nicknameDraft.trim() || null;
-    await setDeviceNickname(key, value);
-    setDevices((prev) =>
-      prev.map((d) =>
-        d.ip === selected.ip ? { ...d, nickname: value } : d,
-      ),
-    );
-    setSelected((s) => (s ? { ...s, nickname: value } : s));
+    await persistCustomName(selected, nicknameDraft);
+  }
+
+  async function clearNickname() {
+    if (!selected) return;
+    await persistCustomName(selected, "");
+  }
+
+  function startListRename(device: Device) {
+    setSelected(device);
+    setRenamingIp(device.ip);
+    setListRenameDraft(device.nickname ?? "");
+  }
+
+  async function commitListRename(device: Device) {
+    await persistCustomName(device, listRenameDraft);
+    setRenamingIp(null);
   }
 
   return (
@@ -127,30 +163,83 @@ export function DevicesPage() {
           </div>
 
           <ul className="device-list">
-            {devices.map((device) => (
-              <li key={device.ip}>
-                <button
-                  type="button"
-                  className={`device-row ${selected?.ip === device.ip ? "active" : ""}`}
-                  onClick={() => setSelected(device)}
-                >
-                  <span className={`pulse ${device.online ? "on" : "off"}`} />
-                  <span className="device-main">
-                    <span className="device-name">{displayName(device)}</span>
-                    <span className="device-sub">
-                      {[
-                        device.isLocal ? "This computer" : null,
-                        device.isGateway ? "Gateway" : null,
-                        device.vendor,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ") || "Unknown vendor"}
-                    </span>
-                  </span>
-                  <span className="device-ip mono">{device.ip}</span>
-                </button>
-              </li>
-            ))}
+            {devices.map((device) => {
+              const renaming = renamingIp === device.ip;
+              const subtitle = device.nickname
+                ? automaticName(device)
+                : [
+                    device.isLocal ? "This computer" : null,
+                    device.isGateway ? "Gateway" : null,
+                    device.vendor,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || "Unknown vendor";
+
+              return (
+                <li key={device.ip}>
+                  {renaming ? (
+                    <form
+                      className={`device-row renaming ${selected?.ip === device.ip ? "active" : ""}`}
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        void commitListRename(device);
+                      }}
+                    >
+                      <span className={`pulse ${device.online ? "on" : "off"}`} />
+                      <input
+                        ref={listRenameRef}
+                        className="device-rename-input"
+                        value={listRenameDraft}
+                        onChange={(e) => setListRenameDraft(e.target.value)}
+                        placeholder={automaticName(device)}
+                        aria-label={`Custom name for ${device.ip}`}
+                        onKeyDown={(e) => {
+                          if (e.key === "Escape") {
+                            e.preventDefault();
+                            setRenamingIp(null);
+                          }
+                        }}
+                      />
+                      <button className="btn primary small" type="submit">
+                        Save
+                      </button>
+                      <button
+                        className="btn ghost small"
+                        type="button"
+                        onClick={() => setRenamingIp(null)}
+                      >
+                        Cancel
+                      </button>
+                    </form>
+                  ) : (
+                    <div
+                      className={`device-row ${selected?.ip === device.ip ? "active" : ""}`}
+                    >
+                      <button
+                        type="button"
+                        className="device-row-select"
+                        onClick={() => setSelected(device)}
+                      >
+                        <span className={`pulse ${device.online ? "on" : "off"}`} />
+                        <span className="device-main">
+                          <span className="device-name">{displayName(device)}</span>
+                          <span className="device-sub">{subtitle}</span>
+                        </span>
+                        <span className="device-ip mono">{device.ip}</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="btn ghost small device-rename-btn"
+                        onClick={() => startListRename(device)}
+                        title="Set a custom name"
+                      >
+                        Rename
+                      </button>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </main>
 
@@ -166,6 +255,40 @@ export function DevicesPage() {
                 Close
               </button>
             </div>
+
+            <label className="nick-field custom-name-field">
+              <span>Custom name</span>
+              <div className="nick-row">
+                <input
+                  value={nicknameDraft}
+                  onChange={(e) => setNicknameDraft(e.target.value)}
+                  placeholder={automaticName(selected)}
+                  aria-label="Custom device name"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void saveNickname();
+                    }
+                  }}
+                />
+                <button
+                  className="btn primary small"
+                  type="button"
+                  onClick={saveNickname}
+                >
+                  Save
+                </button>
+                <button
+                  className="btn ghost small"
+                  type="button"
+                  onClick={clearNickname}
+                  disabled={!selected.nickname && !nicknameDraft.trim()}
+                  title="Restore automatic display name"
+                >
+                  Clear
+                </button>
+              </div>
+            </label>
 
             <dl className="detail-grid">
               <Detail label="Status" value={selected.online ? "Online" : "Offline"} />
@@ -186,24 +309,6 @@ export function DevicesPage() {
             <PingPanel ip={selected.ip} />
             <PortScanPanel ip={selected.ip} />
             <WakePanel mac={selected.mac} />
-
-            <label className="nick-field">
-              <span>Nickname</span>
-              <div className="nick-row">
-                <input
-                  value={nicknameDraft}
-                  onChange={(e) => setNicknameDraft(e.target.value)}
-                  placeholder="Optional label"
-                />
-                <button
-                  className="btn primary small"
-                  type="button"
-                  onClick={saveNickname}
-                >
-                  Save
-                </button>
-              </div>
-            </label>
           </aside>
         ) : null}
       </div>

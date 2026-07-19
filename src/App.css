@@ -928,17 +928,13 @@ input {
 
 .device-row {
   width: 100%;
-  display: grid;
-  grid-template-columns: 14px 1fr auto;
-  gap: 12px;
+  display: flex;
   align-items: center;
-  text-align: left;
-  padding: 14px 16px 14px 8px;
-  border: 0;
+  gap: 8px;
+  padding: 8px 12px 8px 8px;
   border-bottom: 1px solid var(--line);
   background: transparent;
   color: inherit;
-  cursor: pointer;
   transition: background 0.15s ease;
 }
 
@@ -949,6 +945,59 @@ input {
 
 .device-row.active {
   box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.device-row-select {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 14px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  text-align: left;
+  padding: 6px 4px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+
+.device-rename-btn {
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.device-row:hover .device-rename-btn,
+.device-row.active .device-rename-btn {
+  opacity: 1;
+}
+
+.device-row.renaming {
+  display: grid;
+  grid-template-columns: 14px 1fr auto auto;
+  gap: 8px;
+  padding: 10px 12px 10px 8px;
+}
+
+.device-rename-input {
+  min-width: 0;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 0.45rem 0.65rem;
+  outline: none;
+  font: inherit;
+}
+
+.device-rename-input:focus {
+  border-color: rgba(61, 207, 142, 0.55);
+}
+
+.custom-name-field {
+  margin-top: 0;
+  margin-bottom: 18px;
 }
 
 .pulse {
