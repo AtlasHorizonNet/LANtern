@@ -17,7 +17,7 @@ pub fn detect_ssid(interface: &str) -> Option<String> {
             return Some(ssid);
         }
         // Fallback used on newer macOS where networksetup may not work.
-        return run_capture("ipconfig", &["getsummary", interface]).and_then(|out| {
+        run_capture("ipconfig", &["getsummary", interface]).and_then(|out| {
             out.lines().find_map(|line| {
                 let line = line.trim();
                 line.strip_prefix("SSID : ")
@@ -25,7 +25,7 @@ pub fn detect_ssid(interface: &str) -> Option<String> {
                     .map(|s| s.trim().to_string())
                     .filter(|s| !s.is_empty())
             })
-        });
+        })
     }
 
     #[cfg(target_os = "linux")]
