@@ -46,9 +46,7 @@ pub async fn wake_on_lan(mac: &str, broadcast: Option<&str>) -> Result<WakeResul
         .map_err(|e| format!("Failed to send magic packet: {e}"))?;
 
     // Also try the alternate WoL port used by some stacks.
-    let _ = socket
-        .send_to(&packet, SocketAddrV4::new(bcast, 7))
-        .await;
+    let _ = socket.send_to(&packet, SocketAddrV4::new(bcast, 7)).await;
 
     Ok(WakeResult {
         success: true,
@@ -61,8 +59,8 @@ pub async fn wake_on_lan(mac: &str, broadcast: Option<&str>) -> Result<WakeResul
 fn mac_bytes(normalized: &str) -> Result<[u8; 6], String> {
     let mut out = [0u8; 6];
     for (i, part) in normalized.split(':').enumerate() {
-        out[i] = u8::from_str_radix(part, 16)
-            .map_err(|e| format!("Invalid MAC octet '{part}': {e}"))?;
+        out[i] =
+            u8::from_str_radix(part, 16).map_err(|e| format!("Invalid MAC octet '{part}': {e}"))?;
     }
     Ok(out)
 }

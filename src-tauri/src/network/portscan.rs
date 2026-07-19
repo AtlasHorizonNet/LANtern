@@ -82,9 +82,7 @@ pub fn parse_ports_spec(spec: &str) -> Result<Vec<u16>, String> {
                 ports.push(p);
             }
         } else {
-            let p: u16 = part
-                .parse()
-                .map_err(|_| format!("Invalid port '{part}'"))?;
+            let p: u16 = part.parse().map_err(|_| format!("Invalid port '{part}'"))?;
             if p == 0 {
                 return Err("Port 0 is not allowed".into());
             }

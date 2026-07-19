@@ -264,9 +264,6 @@ pub async fn scan_ports(ip: String, ports: String) -> Result<PortScanResult, Str
 }
 
 #[tauri::command]
-pub async fn wake_on_lan(
-    mac: String,
-    broadcast: Option<String>,
-) -> Result<WakeResult, String> {
+pub async fn wake_on_lan(mac: String, broadcast: Option<String>) -> Result<WakeResult, String> {
     wol::wake_on_lan(&mac, broadcast.as_deref()).await
 }
