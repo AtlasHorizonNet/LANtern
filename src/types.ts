@@ -136,13 +136,17 @@ export function deviceKey(device: Device): string {
   return device.mac ?? device.ip;
 }
 
-export function displayName(device: Device): string {
+/** Automatic label when no custom name is set. */
+export function automaticName(device: Device): string {
   return (
-    device.nickname ||
     device.hostname ||
     device.vendor ||
     (device.isLocal ? "This computer" : device.isGateway ? "Gateway" : device.ip)
   );
+}
+
+export function displayName(device: Device): string {
+  return device.nickname || automaticName(device);
 }
 
 export function networkLabel(network: NetworkInfo): string {
