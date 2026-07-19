@@ -1,3 +1,4 @@
+pub mod dhcp;
 pub mod dns;
 pub mod identity;
 pub mod interfaces;

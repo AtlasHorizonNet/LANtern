@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
   Device,
+  DhcpDiscoverResult,
   DnsQueryResult,
   NetworkInfo,
   PingOutcome,
@@ -85,4 +86,15 @@ export function dnsReverse(
   server?: string | null,
 ): Promise<DnsQueryResult> {
   return invoke("dns_reverse", { ip, server: server ?? null });
+}
+
+export function dhcpDiscover(
+  localIp: string,
+  timeoutMs = 4000,
+): Promise<DhcpDiscoverResult> {
+  return invoke("dhcp_discover", { localIp, timeoutMs });
+}
+
+export function dhcpPrivilegeNote(): Promise<string> {
+  return invoke("dhcp_privilege_note");
 }

@@ -1,4 +1,6 @@
 use crate::db::{Database, ScanRunDetail, ScanRunSummary};
+use crate::network::dhcp::{self, DhcpDiscoverResult};
+use crate::network::dns::{self, DnsQueryResult};
 use crate::network::identity;
 use crate::network::ping::{self, PingOutcome};
 use crate::network::scan;
@@ -6,6 +8,7 @@ use crate::network::{Device, NetworkInfo, ScanResult};
 use crate::store::AppState;
 use std::net::Ipv4Addr;
 use std::sync::atomic::Ordering;
+use std::time::Duration;
 use tauri::{AppHandle, State};
 
 fn apply_db_metadata(db: &Database, mut info: NetworkInfo) -> NetworkInfo {
@@ -216,4 +219,35 @@ pub fn list_scan_runs(
 #[tauri::command]
 pub fn get_scan_run(state: State<'_, AppState>, id: i64) -> Result<Option<ScanRunDetail>, String> {
     state.db.lock().get_scan_run(id)
+}
+
+#[tauri::command]
+pub async fn dns_lookup(
+    host: String,
+    record_type: String,
+    server: Option<String>,
+) -> Result<DnsQueryResult, String> {
+    dns::dns_lookup(&host, &record_type, server.as_deref()).await
+}
+
+#[tauri::command]
+pub async fn dns_reverse(ip: String, server: Option<String>) -> Result<DnsQueryResult, String> {
+    dns::dns_reverse(&ip, server.as_deref()).await
+}
+
+#[tauri::command]
+pub async fn dhcp_discover(
+    local_ip: String,
+    timeout_ms: Option<u32>,
+) -> Result<DhcpDiscoverResult, String> {
+    let addr: Ipv4Addr = local_ip
+        .parse()
+        .map_err(|e| format!("Invalid local IP {local_ip}: {e}"))?;
+    let wait = Duration::from_millis(timeout_ms.unwrap_or(4000) as u64);
+    Ok(dhcp::discover(addr, wait).await)
+}
+
+#[tauri::command]
+pub fn dhcp_privilege_note() -> String {
+    dhcp::privilege_note()
 }
