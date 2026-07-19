@@ -1,21 +1,49 @@
+import {
+  useEffect,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import { UpdateBanner } from "../components/UpdateBanner";
 import {
   checkForUpdate,
   downloadAndInstall,
+  loadInstalledVersion,
   restartApp,
   type UpdateStatus,
+  type VersionInfo,
 } from "../updater";
 
 export function SettingsPage({
   update,
   setUpdate,
+  version,
+  setVersion,
 }: {
   update: UpdateStatus;
   setUpdate: (status: UpdateStatus) => void;
+  version: VersionInfo;
+  setVersion: Dispatch<SetStateAction<VersionInfo>>;
 }) {
+  const [installedLoading, setInstalledLoading] = useState(!version.installed);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadInstalledVersion().then((installed) => {
+      if (cancelled || !installed) return;
+      setInstalledLoading(false);
+      setVersion((prev) => ({ ...prev, installed }));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [setVersion]);
+
   async function onCheckUpdate() {
     setUpdate({ state: "checking" });
-    setUpdate(await checkForUpdate());
+    const result = await checkForUpdate();
+    setVersion(result.version);
+    setUpdate(result.status);
   }
 
   async function onInstallUpdate() {
@@ -34,6 +62,36 @@ export function SettingsPage({
           App maintenance and preferences. More options will land here over time.
         </p>
       </header>
+
+      <section className="settings-section" aria-labelledby="about-heading">
+        <div className="settings-section-head">
+          <div>
+            <h3 id="about-heading">About</h3>
+            <p className="muted">
+              Installed build versus the latest GitHub release.
+            </p>
+          </div>
+        </div>
+
+        <dl className="about-grid">
+          <div>
+            <dt>Installed version</dt>
+            <dd className="mono">
+              {installedLoading && !version.installed
+                ? "…"
+                : formatVersion(version.installed)}
+            </dd>
+          </div>
+          <div>
+            <dt>Latest on GitHub</dt>
+            <dd className="mono">{formatVersion(version.github)}</dd>
+          </div>
+          <div>
+            <dt>Last checked</dt>
+            <dd>{formatLastChecked(version.lastCheckedAt)}</dd>
+          </div>
+        </dl>
+      </section>
 
       <section className="settings-section" aria-labelledby="updates-heading">
         <div className="settings-section-head">
@@ -75,4 +133,14 @@ export function SettingsPage({
       </section>
     </div>
   );
+}
+
+function formatVersion(version: string | null): string {
+  if (!version) return "—";
+  return version.startsWith("v") ? version : `v${version}`;
+}
+
+function formatLastChecked(at: number | null): string {
+  if (at == null) return "Not checked yet";
+  return new Date(at).toLocaleString();
 }
