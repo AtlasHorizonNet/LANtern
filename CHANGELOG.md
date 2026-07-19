@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.4.0](https://github.com/AtlasHorizonNet/LANtern/compare/v0.3.2...v0.4.0) (2026-07-19)
+
+
+### Features
+
+* add DNS tools, Settings, and History pages ([4350d05](https://github.com/AtlasHorizonNet/LANtern/commit/4350d058e1431e33a284fc98aa06ce09cbb57fc5))
+* add DNS tools, Settings, and History pages ([4ace9f5](https://github.com/AtlasHorizonNet/LANtern/commit/4ace9f54bc1312ee99122786a94f5888c7995255))
+* add DNS tools, Settings, and History pages ([#29](https://github.com/AtlasHorizonNet/LANtern/issues/29)) ([4350d05](https://github.com/AtlasHorizonNet/LANtern/commit/4350d058e1431e33a284fc98aa06ce09cbb57fc5))
+
 ## [0.3.2](https://github.com/AtlasHorizonNet/LANtern/compare/v0.3.1...v0.3.2) (2026-07-17)
 
 
