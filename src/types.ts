@@ -100,6 +100,30 @@ export type DhcpDiscoverResult = {
   error: string | null;
 };
 
+export type PortState = "open" | "closed" | "filtered";
+
+export type PortResult = {
+  port: number;
+  state: PortState;
+  service: string | null;
+  latencyMs: number | null;
+};
+
+export type PortScanResult = {
+  ip: string;
+  scanned: number;
+  openCount: number;
+  durationMs: number;
+  ports: PortResult[];
+};
+
+export type WakeResult = {
+  success: boolean;
+  mac: string;
+  broadcast: string;
+  message: string;
+};
+
 export type AppPage =
   | "scan"
   | "devices"

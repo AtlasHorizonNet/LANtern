@@ -5,7 +5,9 @@ pub mod interfaces;
 pub mod neighbors;
 pub mod oui;
 pub mod ping;
+pub mod portscan;
 pub mod scan;
+pub mod wol;
 
 use serde::{Deserialize, Serialize};
 
