@@ -45,6 +45,10 @@ pub fn run() {
             commands::refresh_external_ip,
             commands::list_scan_runs,
             commands::get_scan_run,
+            commands::dns_lookup,
+            commands::dns_reverse,
+            commands::dhcp_discover,
+            commands::dhcp_privilege_note,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

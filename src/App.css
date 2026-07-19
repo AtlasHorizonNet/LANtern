@@ -354,6 +354,27 @@ input {
   margin: 0;
 }
 
+.privilege-note {
+  max-width: 640px;
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.dhcp-offer-details {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+
 .coming-soon {
   max-width: 480px;
   padding: 28px 0;

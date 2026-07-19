@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { DevicesPage } from "./pages/DevicesPage";
+import { DhcpPage } from "./pages/DhcpPage";
 import { DnsPage } from "./pages/DnsPage";
 import { HistoryPage } from "./pages/HistoryPage";
 import { SettingsPage } from "./pages/SettingsPage";
@@ -16,6 +17,7 @@ import "./App.css";
 const NAV_ITEMS: { id: AppPage; label: string }[] = [
   { id: "devices", label: "Devices" },
   { id: "dns", label: "DNS" },
+  { id: "dhcp", label: "DHCP" },
   { id: "history", label: "History" },
   { id: "settings", label: "Settings" },
 ];
@@ -89,6 +91,7 @@ function App() {
       <div className="page-body">
         {page === "devices" ? <DevicesPage /> : null}
         {page === "dns" ? <DnsPage /> : null}
+        {page === "dhcp" ? <DhcpPage /> : null}
         {page === "history" ? <HistoryPage /> : null}
         {page === "settings" ? (
           <SettingsPage update={update} setUpdate={setUpdate} />

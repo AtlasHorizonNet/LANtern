@@ -136,6 +136,12 @@ Scan history, per-network device caches, network display names, and nicknames ar
 
 Each network is fingerprinted from Wi‑Fi SSID when available, otherwise DNS search domain, otherwise interface+CIDR+gateway. The Devices list is scoped to the active fingerprint; History browses past scan runs (including external/WAN IP when detected).
 
+On macOS, reading the real Wi‑Fi SSID may require **Location Services** for LANtern (or Terminal, when debugging helpers). If the OS returns `<redacted>`, LANtern ignores it and falls back to search domain / interface naming.
+
+### DHCP discover tool
+
+The **DHCP** page sends a discover-only probe (`DHCPDISCOVER`) and reports any `DHCPOFFER` details (server, offered address, lease, gateway, DNS). It never sends `DHCPREQUEST`, so it will not accept or replace your active lease. Binding UDP port 68 often needs administrator / root privileges on macOS and Linux; the UI surfaces that requirement when the bind fails.
+
 ### Cutting a release by tag (manual path)
 
 You can also release without the release-please PR by pushing a semantic-version tag. This builds all four targets and attaches the installers to a matching GitHub Release:

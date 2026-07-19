@@ -80,7 +80,27 @@ export type ScanRunDetail = {
   devices: Device[];
 };
 
-export type AppPage = "devices" | "dns" | "history" | "settings";
+export type DhcpOffer = {
+  serverIp: string | null;
+  offeredIp: string;
+  leaseSeconds: number | null;
+  subnetMask: string | null;
+  gateway: string | null;
+  dnsServers: string[];
+  domain: string | null;
+  latencyMs: number;
+  messageType: string;
+};
+
+export type DhcpDiscoverResult = {
+  success: boolean;
+  privilegeNote: string;
+  timeoutMs: number;
+  offers: DhcpOffer[];
+  error: string | null;
+};
+
+export type AppPage = "devices" | "dns" | "dhcp" | "history" | "settings";
 
 export function deviceKey(device: Device): string {
   return device.mac ?? device.ip;

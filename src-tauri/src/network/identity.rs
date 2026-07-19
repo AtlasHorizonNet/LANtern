@@ -13,19 +13,27 @@ pub fn detect_ssid(interface: &str) -> Option<String> {
                     .map(|s| s.trim().to_string())
                     .filter(|s| !s.is_empty() && !s.contains("not associated"))
             })
+            .and_then(sanitize_ssid)
         {
             return Some(ssid);
         }
         // Fallback used on newer macOS where networksetup may not work.
-        run_capture("ipconfig", &["getsummary", interface]).and_then(|out| {
-            out.lines().find_map(|line| {
-                let line = line.trim();
-                line.strip_prefix("SSID : ")
-                    .or_else(|| line.strip_prefix("SSID: "))
-                    .map(|s| s.trim().to_string())
-                    .filter(|s| !s.is_empty())
+        // Without Location Services, macOS often returns the literal "<redacted>".
+        if let Some(ssid) = run_capture("ipconfig", &["getsummary", interface])
+            .and_then(|out| {
+                out.lines().find_map(|line| {
+                    let line = line.trim();
+                    line.strip_prefix("SSID : ")
+                        .or_else(|| line.strip_prefix("SSID: "))
+                        .map(|s| s.trim().to_string())
+                        .filter(|s| !s.is_empty())
+                })
             })
-        })
+            .and_then(sanitize_ssid)
+        {
+            return Some(ssid);
+        }
+        None
     }
 
     #[cfg(target_os = "linux")]
@@ -34,6 +42,7 @@ pub fn detect_ssid(interface: &str) -> Option<String> {
             .or_else(|| run_capture("iwgetid", &["-r"]))
             .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty())
+            .and_then(sanitize_ssid)
         {
             return Some(ssid);
         }
@@ -43,9 +52,8 @@ pub fn detect_ssid(interface: &str) -> Option<String> {
             for line in out.lines() {
                 let parts: Vec<_> = line.splitn(3, ':').collect();
                 if parts.len() == 3 && parts[0] == interface && parts[1] == "yes" {
-                    let ssid = parts[2].trim();
-                    if !ssid.is_empty() {
-                        return Some(ssid.to_string());
+                    if let Some(ssid) = sanitize_ssid(parts[2].trim().to_string()) {
+                        return Some(ssid);
                     }
                 }
             }
@@ -63,7 +71,7 @@ pub fn detect_ssid(interface: &str) -> Option<String> {
                 if lower.starts_with("ssid") && !lower.starts_with("bssid") {
                     line.split_once(':')
                         .map(|(_, v)| v.trim().to_string())
-                        .filter(|s| !s.is_empty())
+                        .and_then(sanitize_ssid)
                 } else {
                     None
                 }
@@ -76,6 +84,25 @@ pub fn detect_ssid(interface: &str) -> Option<String> {
         let _ = interface;
         None
     }
+}
+
+/// Drop privacy placeholders so they never become a network name/fingerprint.
+pub fn sanitize_ssid(raw: String) -> Option<String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    let lower = trimmed.to_ascii_lowercase();
+    if lower == "<redacted>"
+        || lower == "redacted"
+        || lower == "(redacted)"
+        || lower == "unknown"
+        || lower == "<unknown>"
+        || lower == "ssid not available"
+    {
+        return None;
+    }
+    Some(trimmed.to_string())
 }
 
 /// DNS search/domain from the system resolver configuration.
@@ -275,6 +302,17 @@ mod tests {
         assert_eq!(
             auto_name(None, None, "eth0", "192.168.1.0/24"),
             "eth0 (192.168.1.0/24)"
+        );
+    }
+
+    #[test]
+    fn rejects_redacted_ssid_placeholders() {
+        assert!(sanitize_ssid("<redacted>".into()).is_none());
+        assert!(sanitize_ssid("<REDACTED>".into()).is_none());
+        assert!(sanitize_ssid("redacted".into()).is_none());
+        assert_eq!(
+            sanitize_ssid("Cafe Wi-Fi".into()).as_deref(),
+            Some("Cafe Wi-Fi")
         );
     }
 }
