@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.6.0](https://github.com/AtlasHorizonNet/LANtern/compare/v0.5.0...v0.6.0) (2026-07-19)
+
+
+### Features
+
+* DHCP discover tool and fix redacted macOS SSIDs ([a991864](https://github.com/AtlasHorizonNet/LANtern/commit/a991864c5e159c44f7a219a4ae57d003f744a9f5))
+* DHCP discover tool and fix redacted macOS SSIDs ([#38](https://github.com/AtlasHorizonNet/LANtern/issues/38)) ([a991864](https://github.com/AtlasHorizonNet/LANtern/commit/a991864c5e159c44f7a219a4ae57d003f744a9f5))
+* DHCP discover tool and ignore redacted macOS SSIDs ([8c311c3](https://github.com/AtlasHorizonNet/LANtern/commit/8c311c34c5ae6a4eb14d40a12a7000c836ba3e9b))
+
 ## [0.5.0](https://github.com/AtlasHorizonNet/LANtern/compare/v0.4.0...v0.5.0) (2026-07-19)
 
 
