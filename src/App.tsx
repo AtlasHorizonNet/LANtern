@@ -4,7 +4,9 @@ import { DevicesPage } from "./pages/DevicesPage";
 import { DhcpPage } from "./pages/DhcpPage";
 import { DnsPage } from "./pages/DnsPage";
 import { HistoryPage } from "./pages/HistoryPage";
+import { ScanPage } from "./pages/ScanPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { ScanSessionProvider } from "./scanSession";
 import type { AppPage } from "./types";
 import {
   checkForUpdate,
@@ -15,6 +17,7 @@ import {
 import "./App.css";
 
 const NAV_ITEMS: { id: AppPage; label: string }[] = [
+  { id: "scan", label: "Scan" },
   { id: "devices", label: "Devices" },
   { id: "dns", label: "DNS" },
   { id: "dhcp", label: "DHCP" },
@@ -23,7 +26,7 @@ const NAV_ITEMS: { id: AppPage; label: string }[] = [
 ];
 
 function App() {
-  const [page, setPage] = useState<AppPage>("devices");
+  const [page, setPage] = useState<AppPage>("scan");
   const [update, setUpdate] = useState<UpdateStatus>({ state: "idle" });
 
   useEffect(() => {
@@ -49,55 +52,68 @@ function App() {
       update.state === "error");
 
   return (
-    <div className={`app page-${page}`}>
-      <div className="atmosphere" aria-hidden />
+    <ScanSessionProvider>
+      <div className={`app page-${page}`}>
+        <div className="atmosphere" aria-hidden />
 
-      <header className="top">
-        <div className="brand-block">
-          <img className="brand-logo" src="/logo.svg" alt="" width={36} height={36} />
-          <div>
-            <p className="brand">LANtern</p>
-            <p className="tagline">Light up every device on your local network.</p>
+        <header className="top">
+          <div className="brand-block">
+            <img
+              className="brand-logo"
+              src="/logo.svg"
+              alt=""
+              width={36}
+              height={36}
+            />
+            <div>
+              <p className="brand">LANtern</p>
+              <p className="tagline">
+                Light up every device on your local network.
+              </p>
+            </div>
           </div>
-        </div>
 
-        <nav className="app-nav" aria-label="Main">
-          {NAV_ITEMS.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className={`nav-link ${page === item.id ? "active" : ""}`}
-              aria-current={page === item.id ? "page" : undefined}
-              onClick={() => setPage(item.id)}
-            >
-              {item.label}
-              {item.id === "settings" && update.state === "available" ? (
-                <span className="nav-dot" aria-label="Update available" />
-              ) : null}
-            </button>
-          ))}
-        </nav>
-      </header>
+          <nav className="app-nav" aria-label="Main">
+            {NAV_ITEMS.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={`nav-link ${page === item.id ? "active" : ""}`}
+                aria-current={page === item.id ? "page" : undefined}
+                onClick={() => setPage(item.id)}
+              >
+                {item.label}
+                {item.id === "settings" && update.state === "available" ? (
+                  <span className="nav-dot" aria-label="Update available" />
+                ) : null}
+              </button>
+            ))}
+          </nav>
+        </header>
 
-      {showGlobalBanner ? (
-        <UpdateBanner
-          status={update}
-          onInstall={onInstallUpdate}
-          onRestart={restartApp}
-          onDismiss={() => setUpdate({ state: "idle" })}
-        />
-      ) : null}
-
-      <div className="page-body">
-        {page === "devices" ? <DevicesPage /> : null}
-        {page === "dns" ? <DnsPage /> : null}
-        {page === "dhcp" ? <DhcpPage /> : null}
-        {page === "history" ? <HistoryPage /> : null}
-        {page === "settings" ? (
-          <SettingsPage update={update} setUpdate={setUpdate} />
+        {showGlobalBanner ? (
+          <UpdateBanner
+            status={update}
+            onInstall={onInstallUpdate}
+            onRestart={restartApp}
+            onDismiss={() => setUpdate({ state: "idle" })}
+          />
         ) : null}
+
+        <div className="page-body">
+          {page === "scan" ? (
+            <ScanPage onViewDevices={() => setPage("devices")} />
+          ) : null}
+          {page === "devices" ? <DevicesPage /> : null}
+          {page === "dns" ? <DnsPage /> : null}
+          {page === "dhcp" ? <DhcpPage /> : null}
+          {page === "history" ? <HistoryPage /> : null}
+          {page === "settings" ? (
+            <SettingsPage update={update} setUpdate={setUpdate} />
+          ) : null}
+        </div>
       </div>
-    </div>
+    </ScanSessionProvider>
   );
 }
 

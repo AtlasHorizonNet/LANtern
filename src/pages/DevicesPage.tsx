@@ -1,203 +1,37 @@
-import { useEffect, useRef, useState, useTransition } from "react";
-import { listen } from "@tauri-apps/api/event";
-import {
-  cancelScan,
-  clearDevices,
-  getDevices,
-  listNetworks,
-  pingDevice,
-  refreshExternalIp,
-  setDeviceNickname,
-  setNetworkDisplayName,
-  startScan,
-} from "../api";
+import { useEffect, useRef, useState } from "react";
+import { pingDevice, setDeviceNickname } from "../api";
+import { useScanSession } from "../scanSession";
 import {
   deviceKey,
   displayName,
   networkLabel,
   type Device,
-  type NetworkInfo,
   type PingOutcome,
-  type ScanProgress,
 } from "../types";
 
-function networkOptionId(n: NetworkInfo): string {
-  return n.fingerprint || `${n.interfaceName}|${n.localIp}|${n.cidr}`;
-}
-
 export function DevicesPage() {
-  const [networks, setNetworks] = useState<NetworkInfo[]>([]);
-  const [network, setNetwork] = useState<NetworkInfo | null>(null);
-  const [devices, setDevices] = useState<Device[]>([]);
+  const {
+    network,
+    devices,
+    setDevices,
+    scanning,
+    error,
+    setError,
+    networkNameDraft,
+    setNetworkNameDraft,
+    clear,
+    saveNetworkName,
+  } = useScanSession();
   const [selected, setSelected] = useState<Device | null>(null);
-  const [progress, setProgress] = useState<ScanProgress | null>(null);
-  const [scanning, setScanning] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [nicknameDraft, setNicknameDraft] = useState("");
-  const [networkNameDraft, setNetworkNameDraft] = useState("");
-  const [, startTransition] = useTransition();
-  const activeFingerprint = useRef<string | null>(null);
 
   useEffect(() => {
-    let unprogress: (() => void) | undefined;
-    let undevice: (() => void) | undefined;
-
-    (async () => {
-      try {
-        const found = await listNetworks();
-        setNetworks(found);
-        if (found.length) {
-          setNetwork(found[0]);
-          activeFingerprint.current = found[0].fingerprint;
-          setNetworkNameDraft(networkLabel(found[0]));
-          const cached = await getDevices(found[0].fingerprint);
-          setDevices([...cached].sort(sortDevices));
-          // Best-effort WAN IP refresh for the active network.
-          refreshExternalIp(found[0].fingerprint)
-            .then((ip) => {
-              if (!ip) return;
-              setNetwork((n) =>
-                n && n.fingerprint === found[0].fingerprint
-                  ? { ...n, externalIp: ip }
-                  : n,
-              );
-              setNetworks((list) =>
-                list.map((n) =>
-                  n.fingerprint === found[0].fingerprint
-                    ? { ...n, externalIp: ip }
-                    : n,
-                ),
-              );
-            })
-            .catch(() => {
-              /* offline / blocked */
-            });
-        } else {
-          setError("No suitable IPv4 network interface found");
-        }
-      } catch (e) {
-        setError(String(e));
-      }
-
-      unprogress = await listen<ScanProgress>("scan-progress", (event) => {
-        setProgress(event.payload);
-      });
-
-      undevice = await listen<Device>("device-found", (event) => {
-        startTransition(() => {
-          setDevices((prev) => {
-            const key = event.payload.ip;
-            const next = prev.filter((d) => d.ip !== key);
-            next.push(event.payload);
-            next.sort(sortDevices);
-            return next;
-          });
-        });
-      });
-    })();
-
-    return () => {
-      unprogress?.();
-      undevice?.();
-    };
-  }, []);
+    setSelected(null);
+  }, [network?.fingerprint]);
 
   useEffect(() => {
     setNicknameDraft(selected?.nickname ?? "");
   }, [selected?.ip, selected?.nickname]);
-
-  async function loadDevicesFor(next: NetworkInfo) {
-    activeFingerprint.current = next.fingerprint;
-    setNetworkNameDraft(networkLabel(next));
-    setSelected(null);
-    try {
-      const cached = await getDevices(next.fingerprint);
-      setDevices([...cached].sort(sortDevices));
-    } catch {
-      setDevices([]);
-    }
-  }
-
-  async function onScan() {
-    if (!network) return;
-    setError(null);
-    setScanning(true);
-    setProgress({
-      checked: 0,
-      total: network.hostCount ?? 0,
-      found: 0,
-      phase: "starting",
-    });
-    setDevices([]);
-    setSelected(null);
-    try {
-      const result = await startScan(network);
-      setNetwork(result.network);
-      setNetworks((list) => {
-        const others = list.filter(
-          (n) => n.fingerprint !== result.network.fingerprint,
-        );
-        return [result.network, ...others];
-      });
-      setNetworkNameDraft(networkLabel(result.network));
-      activeFingerprint.current = result.network.fingerprint;
-      setDevices([...result.devices].sort(sortDevices));
-      if (result.cancelled) {
-        setError("Scan cancelled");
-      }
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setScanning(false);
-      setProgress(null);
-    }
-  }
-
-  async function onCancel() {
-    await cancelScan();
-  }
-
-  async function onSelectNetwork(id: string) {
-    const next = networks.find((n) => networkOptionId(n) === id);
-    if (!next) return;
-    if (next.fingerprint === network?.fingerprint) {
-      setNetwork(next);
-      return;
-    }
-    setNetwork(next);
-    await loadDevicesFor(next);
-  }
-
-  async function onClear() {
-    if (!network) return;
-    setError(null);
-    try {
-      await clearDevices(network.fingerprint);
-      setDevices([]);
-      setSelected(null);
-    } catch (e) {
-      setError(String(e));
-    }
-  }
-
-  async function saveNetworkName() {
-    if (!network) return;
-    try {
-      const updated = await setNetworkDisplayName(
-        network.fingerprint,
-        networkNameDraft.trim() || null,
-      );
-      setNetwork(updated);
-      setNetworks((list) =>
-        list.map((n) =>
-          n.fingerprint === updated.fingerprint ? updated : n,
-        ),
-      );
-      setNetworkNameDraft(networkLabel(updated));
-    } catch (e) {
-      setError(String(e));
-    }
-  }
 
   async function saveNickname() {
     if (!selected) return;
@@ -212,80 +46,32 @@ export function DevicesPage() {
     setSelected((s) => (s ? { ...s, nickname: value } : s));
   }
 
-  const onlineCount = devices.filter((d) => d.online).length;
-  const pct =
-    progress && progress.total > 0
-      ? Math.min(100, Math.round((progress.checked / progress.total) * 100))
-      : scanning
-        ? 5
-        : 0;
-
   return (
     <div className="devices-page">
-      <div className="page-actions">
-        <button
-          className="btn ghost"
-          type="button"
-          onClick={onClear}
-          disabled={scanning || !network || devices.length === 0}
-          title="Clear cached devices for this network"
-        >
-          Clear
-        </button>
-        {scanning ? (
-          <button className="btn ghost" type="button" onClick={onCancel}>
-            Cancel
+      <header className="devices-top">
+        <div className="devices-title-row">
+          <div>
+            <h2 className="devices-heading">
+              {network ? networkLabel(network) : "Devices"}
+            </h2>
+            <p className="muted devices-sub">
+              {network
+                ? `${network.localIp} · ${network.cidr}`
+                : "Scan a network to see results here"}
+            </p>
+          </div>
+          <button
+            className="btn ghost"
+            type="button"
+            onClick={clear}
+            disabled={scanning || !network || devices.length === 0}
+            title="Clear cached devices for this network"
+          >
+            Clear
           </button>
-        ) : null}
-        <button
-          className="btn primary"
-          type="button"
-          onClick={onScan}
-          disabled={scanning || !network}
-        >
-          {scanning ? "Scanning…" : "Scan network"}
-        </button>
-      </div>
-
-      <section className="netbar" aria-label="Network summary">
-        <div className="netstat">
-          <span className="netstat-label">Network</span>
-          {networks.length > 1 ? (
-            <select
-              className="netstat-select"
-              value={network ? networkOptionId(network) : ""}
-              onChange={(e) => onSelectNetwork(e.target.value)}
-              disabled={scanning}
-              aria-label="Select network to view and scan"
-            >
-              {networks.map((n) => (
-                <option key={networkOptionId(n)} value={networkOptionId(n)}>
-                  {networkLabel(n)} — {n.localIp} ({n.cidr})
-                </option>
-              ))}
-            </select>
-          ) : (
-            <span className="netstat-value">
-              {network ? networkLabel(network) : "—"}
-            </span>
-          )}
         </div>
-        <NetStat label="Your IP" value={network?.localIp ?? "—"} mono />
-        <NetStat label="Subnet" value={network?.cidr ?? "—"} mono />
-        <NetStat label="Gateway" value={network?.gateway ?? "—"} mono />
-        <NetStat
-          label="External IP"
-          value={network?.externalIp ?? "—"}
-          mono
-        />
-        <NetStat
-          label="Devices"
-          value={devices.length ? `${onlineCount} online` : "—"}
-        />
-      </section>
 
-      {network ? (
-        <div className="network-rename">
+        {network ? (
           <label className="nick-field network-rename-field">
             <span>Network name</span>
             <div className="nick-row">
@@ -305,45 +91,30 @@ export function DevicesPage() {
               </button>
             </div>
           </label>
-          <p className="muted network-meta">
-            {[
-              network.media,
-              network.ssid ? `SSID ${network.ssid}` : null,
-              network.searchDomain ? `domain ${network.searchDomain}` : null,
-              network.interfaceName,
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
-        </div>
-      ) : null}
+        ) : null}
+      </header>
 
-      {scanning || progress ? (
-        <div className="progress-wrap" role="status">
-          <div className="progress-meta">
-            <span>{progress?.phase ?? "starting"}</span>
-            <span>
-              {progress
-                ? `${progress.checked} / ${progress.total}`
-                : "…"}
-            </span>
-          </div>
-          <div className="progress-track">
-            <div className="progress-fill" style={{ width: `${pct}%` }} />
-          </div>
-        </div>
+      {error ? (
+        <p className="error">
+          {error}{" "}
+          <button
+            type="button"
+            className="text-link"
+            onClick={() => setError(null)}
+          >
+            Dismiss
+          </button>
+        </p>
       ) : null}
-
-      {error ? <p className="error">{error}</p> : null}
 
       <div className={`workspace ${selected ? "split" : ""}`}>
         <main className="list-pane">
           <div className="list-head">
-            <h2>Devices</h2>
+            <h3>Results</h3>
             <span className="muted">
               {devices.length
                 ? `${devices.length} on this network`
-                : "Run a scan to discover hosts"}
+                : "Run a scan from the Scan page"}
             </span>
           </div>
 
@@ -414,7 +185,11 @@ export function DevicesPage() {
                   onChange={(e) => setNicknameDraft(e.target.value)}
                   placeholder="Optional label"
                 />
-                <button className="btn primary small" type="button" onClick={saveNickname}>
+                <button
+                  className="btn primary small"
+                  type="button"
+                  onClick={saveNickname}
+                >
                   Save
                 </button>
               </div>
@@ -422,23 +197,6 @@ export function DevicesPage() {
           </aside>
         ) : null}
       </div>
-    </div>
-  );
-}
-
-function NetStat({
-  label,
-  value,
-  mono,
-}: {
-  label: string;
-  value: string;
-  mono?: boolean;
-}) {
-  return (
-    <div className="netstat">
-      <span className="netstat-label">{label}</span>
-      <span className={`netstat-value ${mono ? "mono" : ""}`}>{value}</span>
     </div>
   );
 }
@@ -582,11 +340,4 @@ function PingPanel({ ip }: { ip: string }) {
       )}
     </div>
   );
-}
-
-function sortDevices(a: Device, b: Device): number {
-  if (a.isLocal !== b.isLocal) return a.isLocal ? -1 : 1;
-  if (a.isGateway !== b.isGateway) return a.isGateway ? -1 : 1;
-  if (a.online !== b.online) return a.online ? -1 : 1;
-  return a.ip.localeCompare(b.ip, undefined, { numeric: true });
 }
