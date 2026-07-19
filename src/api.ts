@@ -1,5 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { Device, NetworkInfo, PingOutcome, ScanResult } from "./types";
+import type {
+  Device,
+  DnsQueryResult,
+  NetworkInfo,
+  PingOutcome,
+  ScanResult,
+} from "./types";
 
 export function getNetworkInfo(): Promise<NetworkInfo> {
   return invoke("get_network_info");
@@ -30,4 +36,23 @@ export function setDeviceNickname(
   nickname: string | null,
 ): Promise<void> {
   return invoke("set_device_nickname", { key, nickname });
+}
+
+export function dnsLookup(
+  host: string,
+  recordType: string,
+  server?: string | null,
+): Promise<DnsQueryResult> {
+  return invoke("dns_lookup", {
+    host,
+    recordType,
+    server: server ?? null,
+  });
+}
+
+export function dnsReverse(
+  ip: string,
+  server?: string | null,
+): Promise<DnsQueryResult> {
+  return invoke("dns_reverse", { ip, server: server ?? null });
 }
