@@ -1,3 +1,4 @@
+use crate::network::dns::{self, DnsQueryResult};
 use crate::network::ping::{self, PingOutcome};
 use crate::network::scan;
 use crate::network::{Device, NetworkInfo, ScanResult};
@@ -64,4 +65,18 @@ pub fn set_device_nickname(
     nickname: Option<String>,
 ) -> Result<(), String> {
     state.set_nickname(&key, nickname)
+}
+
+#[tauri::command]
+pub async fn dns_lookup(
+    host: String,
+    record_type: String,
+    server: Option<String>,
+) -> Result<DnsQueryResult, String> {
+    dns::dns_lookup(&host, &record_type, server.as_deref()).await
+}
+
+#[tauri::command]
+pub async fn dns_reverse(ip: String, server: Option<String>) -> Result<DnsQueryResult, String> {
+    dns::dns_reverse(&ip, server.as_deref()).await
 }

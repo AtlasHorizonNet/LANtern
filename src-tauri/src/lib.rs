@@ -38,6 +38,8 @@ pub fn run() {
             commands::ping_device,
             commands::get_devices,
             commands::set_device_nickname,
+            commands::dns_lookup,
+            commands::dns_reverse,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

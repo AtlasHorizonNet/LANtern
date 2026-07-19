@@ -39,6 +39,20 @@ export type PingOutcome = {
   error: string | null;
 };
 
+export type DnsRecordType = "A" | "AAAA" | "CNAME" | "TXT" | "MX" | "NS";
+
+export type DnsQueryResult = {
+  server: string;
+  query: string;
+  recordType: string;
+  success: boolean;
+  answers: string[];
+  latencyMs: number;
+  error: string | null;
+};
+
+export type AppPage = "devices" | "dns" | "history" | "settings";
+
 export function deviceKey(device: Device): string {
   return device.mac ?? device.ip;
 }
