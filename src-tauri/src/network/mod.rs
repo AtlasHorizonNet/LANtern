@@ -1,4 +1,5 @@
 pub mod dns;
+pub mod identity;
 pub mod interfaces;
 pub mod neighbors;
 pub mod oui;
@@ -16,6 +17,18 @@ pub struct NetworkInfo {
     pub prefix: u8,
     pub gateway: Option<String>,
     pub host_count: u32,
+    /// Stable identity key used for DB scoping / renames.
+    pub fingerprint: String,
+    /// User override when set; otherwise mirrors `auto_name`.
+    pub display_name: Option<String>,
+    pub auto_name: String,
+    /// `wifi` | `ethernet` | `other` | `unknown`
+    pub media: String,
+    pub ssid: Option<String>,
+    pub search_domain: Option<String>,
+    pub external_ip: Option<String>,
+    /// SQLite `networks.id` when known.
+    pub db_id: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

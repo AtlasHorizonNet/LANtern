@@ -2,23 +2,27 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { listen } from "@tauri-apps/api/event";
 import {
   cancelScan,
+  clearDevices,
   getDevices,
   listNetworks,
   pingDevice,
+  refreshExternalIp,
   setDeviceNickname,
+  setNetworkDisplayName,
   startScan,
 } from "../api";
 import {
   deviceKey,
   displayName,
+  networkLabel,
   type Device,
   type NetworkInfo,
   type PingOutcome,
   type ScanProgress,
 } from "../types";
 
-function networkId(n: NetworkInfo): string {
-  return `${n.interfaceName}|${n.localIp}|${n.cidr}`;
+function networkOptionId(n: NetworkInfo): string {
+  return n.fingerprint || `${n.interfaceName}|${n.localIp}|${n.cidr}`;
 }
 
 export function DevicesPage() {
@@ -30,7 +34,9 @@ export function DevicesPage() {
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [nicknameDraft, setNicknameDraft] = useState("");
+  const [networkNameDraft, setNetworkNameDraft] = useState("");
   const [, startTransition] = useTransition();
+  const activeFingerprint = useRef<string | null>(null);
 
   useEffect(() => {
     let unprogress: (() => void) | undefined;
@@ -40,17 +46,37 @@ export function DevicesPage() {
       try {
         const found = await listNetworks();
         setNetworks(found);
-        if (found.length) setNetwork(found[0]);
-        else setError("No suitable IPv4 network interface found");
+        if (found.length) {
+          setNetwork(found[0]);
+          activeFingerprint.current = found[0].fingerprint;
+          setNetworkNameDraft(networkLabel(found[0]));
+          const cached = await getDevices(found[0].fingerprint);
+          setDevices([...cached].sort(sortDevices));
+          // Best-effort WAN IP refresh for the active network.
+          refreshExternalIp(found[0].fingerprint)
+            .then((ip) => {
+              if (!ip) return;
+              setNetwork((n) =>
+                n && n.fingerprint === found[0].fingerprint
+                  ? { ...n, externalIp: ip }
+                  : n,
+              );
+              setNetworks((list) =>
+                list.map((n) =>
+                  n.fingerprint === found[0].fingerprint
+                    ? { ...n, externalIp: ip }
+                    : n,
+                ),
+              );
+            })
+            .catch(() => {
+              /* offline / blocked */
+            });
+        } else {
+          setError("No suitable IPv4 network interface found");
+        }
       } catch (e) {
         setError(String(e));
-      }
-
-      try {
-        const cached = await getDevices();
-        if (cached.length) setDevices(cached);
-      } catch {
-        /* first run */
       }
 
       unprogress = await listen<ScanProgress>("scan-progress", (event) => {
@@ -80,15 +106,41 @@ export function DevicesPage() {
     setNicknameDraft(selected?.nickname ?? "");
   }, [selected?.ip, selected?.nickname]);
 
+  async function loadDevicesFor(next: NetworkInfo) {
+    activeFingerprint.current = next.fingerprint;
+    setNetworkNameDraft(networkLabel(next));
+    setSelected(null);
+    try {
+      const cached = await getDevices(next.fingerprint);
+      setDevices([...cached].sort(sortDevices));
+    } catch {
+      setDevices([]);
+    }
+  }
+
   async function onScan() {
+    if (!network) return;
     setError(null);
     setScanning(true);
-    setProgress({ checked: 0, total: network?.hostCount ?? 0, found: 0, phase: "starting" });
+    setProgress({
+      checked: 0,
+      total: network.hostCount ?? 0,
+      found: 0,
+      phase: "starting",
+    });
     setDevices([]);
     setSelected(null);
     try {
       const result = await startScan(network);
       setNetwork(result.network);
+      setNetworks((list) => {
+        const others = list.filter(
+          (n) => n.fingerprint !== result.network.fingerprint,
+        );
+        return [result.network, ...others];
+      });
+      setNetworkNameDraft(networkLabel(result.network));
+      activeFingerprint.current = result.network.fingerprint;
       setDevices([...result.devices].sort(sortDevices));
       if (result.cancelled) {
         setError("Scan cancelled");
@@ -105,9 +157,46 @@ export function DevicesPage() {
     await cancelScan();
   }
 
-  function onSelectNetwork(id: string) {
-    const next = networks.find((n) => networkId(n) === id);
-    if (next) setNetwork(next);
+  async function onSelectNetwork(id: string) {
+    const next = networks.find((n) => networkOptionId(n) === id);
+    if (!next) return;
+    if (next.fingerprint === network?.fingerprint) {
+      setNetwork(next);
+      return;
+    }
+    setNetwork(next);
+    await loadDevicesFor(next);
+  }
+
+  async function onClear() {
+    if (!network) return;
+    setError(null);
+    try {
+      await clearDevices(network.fingerprint);
+      setDevices([]);
+      setSelected(null);
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
+  async function saveNetworkName() {
+    if (!network) return;
+    try {
+      const updated = await setNetworkDisplayName(
+        network.fingerprint,
+        networkNameDraft.trim() || null,
+      );
+      setNetwork(updated);
+      setNetworks((list) =>
+        list.map((n) =>
+          n.fingerprint === updated.fingerprint ? updated : n,
+        ),
+      );
+      setNetworkNameDraft(networkLabel(updated));
+    } catch (e) {
+      setError(String(e));
+    }
   }
 
   async function saveNickname() {
@@ -134,6 +223,15 @@ export function DevicesPage() {
   return (
     <div className="devices-page">
       <div className="page-actions">
+        <button
+          className="btn ghost"
+          type="button"
+          onClick={onClear}
+          disabled={scanning || !network || devices.length === 0}
+          title="Clear cached devices for this network"
+        >
+          Clear
+        </button>
         {scanning ? (
           <button className="btn ghost" type="button" onClick={onCancel}>
             Cancel
@@ -143,7 +241,7 @@ export function DevicesPage() {
           className="btn primary"
           type="button"
           onClick={onScan}
-          disabled={scanning}
+          disabled={scanning || !network}
         >
           {scanning ? "Scanning…" : "Scan network"}
         </button>
@@ -151,24 +249,24 @@ export function DevicesPage() {
 
       <section className="netbar" aria-label="Network summary">
         <div className="netstat">
-          <span className="netstat-label">Interface</span>
+          <span className="netstat-label">Network</span>
           {networks.length > 1 ? (
             <select
               className="netstat-select"
-              value={network ? networkId(network) : ""}
+              value={network ? networkOptionId(network) : ""}
               onChange={(e) => onSelectNetwork(e.target.value)}
               disabled={scanning}
-              aria-label="Select network interface to scan"
+              aria-label="Select network to view and scan"
             >
               {networks.map((n) => (
-                <option key={networkId(n)} value={networkId(n)}>
-                  {n.interfaceName} — {n.localIp} ({n.cidr})
+                <option key={networkOptionId(n)} value={networkOptionId(n)}>
+                  {networkLabel(n)} — {n.localIp} ({n.cidr})
                 </option>
               ))}
             </select>
           ) : (
             <span className="netstat-value">
-              {network?.interfaceName ?? "—"}
+              {network ? networkLabel(network) : "—"}
             </span>
           )}
         </div>
@@ -176,10 +274,49 @@ export function DevicesPage() {
         <NetStat label="Subnet" value={network?.cidr ?? "—"} mono />
         <NetStat label="Gateway" value={network?.gateway ?? "—"} mono />
         <NetStat
+          label="External IP"
+          value={network?.externalIp ?? "—"}
+          mono
+        />
+        <NetStat
           label="Devices"
           value={devices.length ? `${onlineCount} online` : "—"}
         />
       </section>
+
+      {network ? (
+        <div className="network-rename">
+          <label className="nick-field network-rename-field">
+            <span>Network name</span>
+            <div className="nick-row">
+              <input
+                value={networkNameDraft}
+                onChange={(e) => setNetworkNameDraft(e.target.value)}
+                placeholder={network.autoName}
+                disabled={scanning}
+              />
+              <button
+                className="btn primary small"
+                type="button"
+                onClick={saveNetworkName}
+                disabled={scanning}
+              >
+                Save
+              </button>
+            </div>
+          </label>
+          <p className="muted network-meta">
+            {[
+              network.media,
+              network.ssid ? `SSID ${network.ssid}` : null,
+              network.searchDomain ? `domain ${network.searchDomain}` : null,
+              network.interfaceName,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        </div>
+      ) : null}
 
       {scanning || progress ? (
         <div className="progress-wrap" role="status">
@@ -205,7 +342,7 @@ export function DevicesPage() {
             <h2>Devices</h2>
             <span className="muted">
               {devices.length
-                ? `${devices.length} known`
+                ? `${devices.length} on this network`
                 : "Run a scan to discover hosts"}
             </span>
           </div>
