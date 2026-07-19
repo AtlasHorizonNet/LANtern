@@ -119,12 +119,22 @@ The tracked version lives in `.release-please-manifest.json`; behavior is config
 
 ### Self-update (in-app)
 
-The app uses the [Tauri updater plugin](https://tauri.app/plugin/updater/). On launch (and via the "Check for updates" button) it fetches `latest.json` from the newest GitHub release, and offers to download, verify (minisign signature), install, and relaunch.
+The app uses the [Tauri updater plugin](https://tauri.app/plugin/updater/). On launch (and via **Settings → Check for updates**) it fetches `latest.json` from the newest GitHub release, and offers to download, verify (minisign signature), install, and relaunch.
 
 - Release builds sign updater artifacts with the key in the `TAURI_SIGNING_PRIVATE_KEY` repo secret (`TAURI_SIGNING_PRIVATE_KEY_PASSWORD` if the key has one). The matching public key is embedded in `src-tauri/tauri.conf.json` (a copy lives at `.tauri/updater.key.pub`).
 - The release workflow uploads `latest.json` alongside the installers (`includeUpdaterJson: true`), which is what deployed apps poll.
 - If you rotate the keypair (`npm run tauri signer generate`), update both the `pubkey` in `tauri.conf.json` and the private-key secret, or already-shipped apps will reject new updates.
 - Note: while this repository is private, unauthenticated apps cannot fetch release assets; the in-app updater will start working once the repo (or its releases) is public.
+
+### Local data (SQLite)
+
+Scan history, per-network device caches, network display names, and nicknames are stored in a local SQLite file:
+
+- Path: the Tauri app data directory / `lantern.db` (never uploaded)
+- Schema versioning uses SQLite `user_version`
+- Older `devices.json` nicknames are imported once on first launch
+
+Each network is fingerprinted from Wi‑Fi SSID when available, otherwise DNS search domain, otherwise interface+CIDR+gateway. The Devices list is scoped to the active fingerprint; History browses past scan runs (including external/WAN IP when detected).
 
 ### Cutting a release by tag (manual path)
 

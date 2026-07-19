@@ -1,3 +1,4 @@
+use crate::network::identity;
 use crate::network::NetworkInfo;
 use ipnetwork::Ipv4Network;
 use network_interface::{NetworkInterface, NetworkInterfaceConfig};
@@ -15,6 +16,7 @@ pub fn list_networks() -> Result<Vec<NetworkInfo>, String> {
         NetworkInterface::show().map_err(|e| format!("Failed to list interfaces: {e}"))?;
 
     let mut candidates = Vec::new();
+    let search_domain = identity::detect_search_domain();
 
     for iface in interfaces {
         if iface.name.starts_with("lo")
@@ -68,14 +70,16 @@ pub fn list_networks() -> Result<Vec<NetworkInfo>, String> {
         .map(|(name, local_ip, network, prefix)| {
             let host_count = network_host_count(network);
             let gateway = guess_gateway(network);
-            NetworkInfo {
-                interface_name: name,
-                local_ip: local_ip.to_string(),
-                cidr: format!("{}/{}", network.network(), prefix),
+            let cidr = format!("{}/{}", network.network(), prefix);
+            enrich_network(
+                name,
+                local_ip.to_string(),
+                cidr,
                 prefix,
-                gateway: gateway.map(|g| g.to_string()),
+                gateway.map(|g| g.to_string()),
                 host_count,
-            }
+                search_domain.clone(),
+            )
         })
         .collect())
 }
@@ -123,14 +127,93 @@ pub fn sanitize_network(info: NetworkInfo) -> Result<NetworkInfo, String> {
         .filter(|g| network.contains(*g))
         .or_else(|| guess_gateway(network));
 
-    Ok(NetworkInfo {
-        interface_name: info.interface_name,
-        local_ip: local.to_string(),
-        cidr: format!("{}/{}", network.network(), prefix),
+    let cidr = format!("{}/{}", network.network(), prefix);
+    let search_domain = info
+        .search_domain
+        .clone()
+        .or_else(identity::detect_search_domain);
+
+    let mut enriched = enrich_network(
+        info.interface_name,
+        local.to_string(),
+        cidr,
         prefix,
-        gateway: gateway.map(|g| g.to_string()),
-        host_count: network_host_count(network),
-    })
+        gateway.map(|g| g.to_string()),
+        network_host_count(network),
+        search_domain,
+    );
+    // Preserve a caller-supplied SSID if detection fails mid-scan.
+    if enriched.ssid.is_none() {
+        enriched.ssid = info.ssid;
+        if let Some(ssid) = enriched.ssid.clone() {
+            enriched.media = identity::classify_media(&enriched.interface_name, Some(&ssid)).into();
+            enriched.fingerprint = identity::fingerprint(
+                &enriched.media,
+                Some(&ssid),
+                enriched.search_domain.as_deref(),
+                &enriched.interface_name,
+                &enriched.cidr,
+                enriched.gateway.as_deref(),
+            );
+            enriched.auto_name = identity::auto_name(
+                Some(&ssid),
+                enriched.search_domain.as_deref(),
+                &enriched.interface_name,
+                &enriched.cidr,
+            );
+        }
+    }
+    if info.display_name.is_some() {
+        enriched.display_name = info.display_name;
+    }
+    if info.external_ip.is_some() {
+        enriched.external_ip = info.external_ip;
+    }
+    enriched.db_id = info.db_id;
+    Ok(enriched)
+}
+
+fn enrich_network(
+    interface_name: String,
+    local_ip: String,
+    cidr: String,
+    prefix: u8,
+    gateway: Option<String>,
+    host_count: u32,
+    search_domain: Option<String>,
+) -> NetworkInfo {
+    let ssid = identity::detect_ssid(&interface_name);
+    let media = identity::classify_media(&interface_name, ssid.as_deref()).to_string();
+    let fingerprint = identity::fingerprint(
+        &media,
+        ssid.as_deref(),
+        search_domain.as_deref(),
+        &interface_name,
+        &cidr,
+        gateway.as_deref(),
+    );
+    let auto_name = identity::auto_name(
+        ssid.as_deref(),
+        search_domain.as_deref(),
+        &interface_name,
+        &cidr,
+    );
+    NetworkInfo {
+        interface_name,
+        local_ip,
+        cidr,
+        prefix,
+        gateway,
+        host_count,
+        fingerprint,
+        display_name: Some(auto_name.clone()),
+        auto_name,
+        media,
+        ssid,
+        search_domain,
+        external_ip: None,
+        db_id: None,
+    }
 }
 
 fn network_host_count(network: Ipv4Network) -> u32 {

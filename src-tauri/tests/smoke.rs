@@ -14,6 +14,14 @@ fn sample_network(cidr: &str, local_ip: &str, host_count: u32) -> NetworkInfo {
         prefix,
         gateway: Some("192.168.1.1".into()),
         host_count,
+        fingerprint: format!("net:eth0|{cidr}|192.168.1.1"),
+        display_name: Some(format!("eth0 ({cidr})")),
+        auto_name: format!("eth0 ({cidr})"),
+        media: "ethernet".into(),
+        ssid: None,
+        search_domain: None,
+        external_ip: None,
+        db_id: None,
     }
 }
 
@@ -168,7 +176,7 @@ fn hosts_to_scan_rejects_oversized_subnets() {
 }
 
 #[test]
-fn device_store_persists_nicknames_and_devices() {
+fn device_store_persists_nicknames_per_network() {
     let dir = std::env::temp_dir().join(format!(
         "lantern-test-{}",
         SystemTime::now()
@@ -176,11 +184,20 @@ fn device_store_persists_nicknames_and_devices() {
             .unwrap()
             .as_nanos()
     ));
-    let path = dir.join("devices.json");
-    let state = AppState::load(path.clone());
+    let db_path = dir.join("lantern.db");
+    let legacy = dir.join("devices.json");
+    let state = AppState::load(db_path.clone(), legacy.clone()).unwrap();
+
+    let mut net = sample_network("192.168.1.0/24", "192.168.1.10", 254);
+    net.fingerprint = "wifi:home|192.168.1.0/24|192.168.1.1".into();
+    let record = state.db.lock().upsert_network(&net).unwrap();
 
     let device = sample_device("192.168.1.20", Some("AA:BB:CC:DD:EE:FF"));
-    state.upsert_devices(std::slice::from_ref(&device));
+    state
+        .db
+        .lock()
+        .replace_network_devices(record.id, std::slice::from_ref(&device))
+        .unwrap();
     state
         .set_nickname("AA:BB:CC:DD:EE:FF", Some("  Living room TV  ".into()))
         .unwrap();
@@ -191,12 +208,16 @@ fn device_store_persists_nicknames_and_devices() {
         Some("Living room TV")
     );
 
-    let listed = state.all_devices();
+    let listed = state
+        .db
+        .lock()
+        .devices_for_network(&net.fingerprint)
+        .unwrap();
     assert_eq!(listed.len(), 1);
     assert_eq!(listed[0].nickname.as_deref(), Some("Living room TV"));
 
     // Reload from disk
-    let reloaded = AppState::load(path);
+    let reloaded = AppState::load(db_path, legacy).unwrap();
     assert_eq!(
         reloaded
             .nicknames()
@@ -204,7 +225,15 @@ fn device_store_persists_nicknames_and_devices() {
             .map(String::as_str),
         Some("Living room TV")
     );
-    assert_eq!(reloaded.all_devices().len(), 1);
+    assert_eq!(
+        reloaded
+            .db
+            .lock()
+            .devices_for_network(&net.fingerprint)
+            .unwrap()
+            .len(),
+        1
+    );
 
     // Clearing nickname
     reloaded
@@ -215,49 +244,58 @@ fn device_store_persists_nicknames_and_devices() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
+fn bare_network(
+    interface_name: &str,
+    cidr: &str,
+    local_ip: &str,
+    gateway: Option<&str>,
+    host_count: u32,
+) -> NetworkInfo {
+    let prefix: u8 = cidr
+        .split('/')
+        .nth(1)
+        .and_then(|p| p.parse().ok())
+        .unwrap_or(24);
+    NetworkInfo {
+        interface_name: interface_name.into(),
+        local_ip: local_ip.into(),
+        cidr: cidr.into(),
+        prefix,
+        gateway: gateway.map(str::to_string),
+        host_count,
+        fingerprint: String::new(),
+        display_name: None,
+        auto_name: String::new(),
+        media: "unknown".into(),
+        ssid: None,
+        search_domain: None,
+        external_ip: None,
+        db_id: None,
+    }
+}
+
 #[test]
 fn sanitize_network_normalizes_valid_selection() {
-    let info = NetworkInfo {
-        interface_name: "eth1".into(),
-        // Deliberately un-normalized CIDR (host address instead of network).
-        cidr: "192.168.5.77/24".into(),
-        local_ip: "192.168.5.77".into(),
-        prefix: 24,
-        gateway: None,
-        host_count: 0,
-    };
+    let info = bare_network("eth1", "192.168.5.77/24", "192.168.5.77", None, 0);
     let out = network::interfaces::sanitize_network(info).unwrap();
     assert_eq!(out.cidr, "192.168.5.0/24");
     assert_eq!(out.prefix, 24);
     assert_eq!(out.host_count, 254);
     assert_eq!(out.gateway.as_deref(), Some("192.168.5.1"));
     assert_eq!(out.interface_name, "eth1");
+    assert!(!out.fingerprint.is_empty());
 }
 
 #[test]
 fn sanitize_network_keeps_valid_gateway() {
-    let info = NetworkInfo {
-        interface_name: "eth0".into(),
-        cidr: "10.1.2.0/24".into(),
-        local_ip: "10.1.2.30".into(),
-        prefix: 24,
-        gateway: Some("10.1.2.254".into()),
-        host_count: 254,
-    };
+    let info = bare_network("eth0", "10.1.2.0/24", "10.1.2.30", Some("10.1.2.254"), 254);
     let out = network::interfaces::sanitize_network(info).unwrap();
     assert_eq!(out.gateway.as_deref(), Some("10.1.2.254"));
 }
 
 #[test]
 fn sanitize_network_replaces_foreign_gateway() {
-    let info = NetworkInfo {
-        interface_name: "eth0".into(),
-        cidr: "10.1.2.0/24".into(),
-        local_ip: "10.1.2.30".into(),
-        prefix: 24,
-        gateway: Some("192.168.1.1".into()),
-        host_count: 254,
-    };
+    let info = bare_network("eth0", "10.1.2.0/24", "10.1.2.30", Some("192.168.1.1"), 254);
     let out = network::interfaces::sanitize_network(info).unwrap();
     // Gateway outside the subnet is discarded in favor of the convention guess.
     assert_eq!(out.gateway.as_deref(), Some("10.1.2.1"));
@@ -265,28 +303,14 @@ fn sanitize_network_replaces_foreign_gateway() {
 
 #[test]
 fn sanitize_network_rejects_ip_outside_subnet() {
-    let info = NetworkInfo {
-        interface_name: "eth0".into(),
-        cidr: "192.168.1.0/24".into(),
-        local_ip: "10.0.0.5".into(),
-        prefix: 24,
-        gateway: None,
-        host_count: 254,
-    };
+    let info = bare_network("eth0", "192.168.1.0/24", "10.0.0.5", None, 254);
     let err = network::interfaces::sanitize_network(info).unwrap_err();
     assert!(err.contains("not inside"), "unexpected error: {err}");
 }
 
 #[test]
 fn sanitize_network_rejects_bad_cidr() {
-    let info = NetworkInfo {
-        interface_name: "eth0".into(),
-        cidr: "not-a-cidr".into(),
-        local_ip: "10.0.0.5".into(),
-        prefix: 24,
-        gateway: None,
-        host_count: 0,
-    };
+    let info = bare_network("eth0", "not-a-cidr", "10.0.0.5", None, 0);
     assert!(network::interfaces::sanitize_network(info).is_err());
 }
 
