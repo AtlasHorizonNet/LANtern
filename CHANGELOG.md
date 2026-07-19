@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.5.0](https://github.com/AtlasHorizonNet/LANtern/compare/v0.4.0...v0.5.0) (2026-07-19)
+
+
+### Features
+
+* network-scoped devices, SQLite history, and network identity ([88a8410](https://github.com/AtlasHorizonNet/LANtern/commit/88a8410b91760c7838b65d6b62ce8a585f009e9a))
+* network-scoped devices, SQLite history, and network identity ([#35](https://github.com/AtlasHorizonNet/LANtern/issues/35)) ([88a8410](https://github.com/AtlasHorizonNet/LANtern/commit/88a8410b91760c7838b65d6b62ce8a585f009e9a))
+* scope devices by network with SQLite history and identity ([4b6590e](https://github.com/AtlasHorizonNet/LANtern/commit/4b6590e5be4227223ebca7390816514419b51831))
+
+
+### Bug Fixes
+
+* satisfy clippy needless_return on macOS SSID fallback ([728b13e](https://github.com/AtlasHorizonNet/LANtern/commit/728b13e43f2327590592ec458b652b6504c9de36))
+
 ## [0.4.0](https://github.com/AtlasHorizonNet/LANtern/compare/v0.3.2...v0.4.0) (2026-07-19)
 
 
