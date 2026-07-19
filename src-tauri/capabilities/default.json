@@ -7,6 +7,17 @@
     "core:default",
     "core:event:default",
     "updater:default",
-    "process:allow-restart"
+    "process:allow-restart",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        {
+          "url": "https://github.com/AtlasHorizonNet/LANtern"
+        },
+        {
+          "url": "https://github.com/AtlasHorizonNet/LANtern/*"
+        }
+      ]
+    }
   ]
 }

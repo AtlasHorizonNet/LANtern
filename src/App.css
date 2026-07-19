@@ -481,6 +481,34 @@ input {
   margin: 0;
 }
 
+.about-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px 20px;
+  margin: 0;
+}
+
+.about-grid > div {
+  min-width: 0;
+}
+
+.about-grid dt {
+  margin: 0 0 4px;
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.about-grid dd {
+  margin: 0;
+  font-size: 0.98rem;
+}
+
+.about-grid .text-link {
+  font-size: inherit;
+}
+
 @keyframes rise {
   from {
     opacity: 0;

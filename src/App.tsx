@@ -11,8 +11,11 @@ import type { AppPage } from "./types";
 import {
   checkForUpdate,
   downloadAndInstall,
+  getVersionInfo,
+  loadInstalledVersion,
   restartApp,
   type UpdateStatus,
+  type VersionInfo,
 } from "./updater";
 import "./App.css";
 
@@ -28,11 +31,20 @@ const NAV_ITEMS: { id: AppPage; label: string }[] = [
 function App() {
   const [page, setPage] = useState<AppPage>("scan");
   const [update, setUpdate] = useState<UpdateStatus>({ state: "idle" });
+  const [version, setVersion] = useState<VersionInfo>(getVersionInfo());
 
   useEffect(() => {
-    // Non-blocking update check on launch; failures are silent.
-    checkForUpdate().then((status) => {
-      if (status.state === "available") setUpdate(status);
+    void loadInstalledVersion().then((installed) => {
+      if (installed) setVersion((v) => ({ ...v, installed }));
+    });
+
+    // Non-blocking update check on launch; only surface available/error
+    // in the global banner, but always refresh About metadata.
+    checkForUpdate().then((result) => {
+      setVersion(result.version);
+      if (result.status.state === "available") {
+        setUpdate(result.status);
+      }
     });
   }, []);
 
@@ -109,7 +121,12 @@ function App() {
           {page === "dhcp" ? <DhcpPage /> : null}
           {page === "history" ? <HistoryPage /> : null}
           {page === "settings" ? (
-            <SettingsPage update={update} setUpdate={setUpdate} />
+            <SettingsPage
+              update={update}
+              setUpdate={setUpdate}
+              version={version}
+              setVersion={setVersion}
+            />
           ) : null}
         </div>
       </div>
