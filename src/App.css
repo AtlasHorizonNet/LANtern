@@ -1005,6 +1005,12 @@ input {
 .detail-pane {
   border-left: 1px solid var(--line);
   padding-left: 18px;
+  padding-bottom: 8px;
+  /* Detail content (ping / port scan / WoL / nickname) is taller than the
+     pane; without this the lower panels are clipped with no way to reach them. */
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   animation: slide 0.25s ease-out both;
 }
 
