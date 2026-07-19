@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.0](https://github.com/AtlasHorizonNet/LANtern/compare/v0.7.0...v0.8.0) (2026-07-19)
+
+
+### Features
+
+* device custom names / rename from the list ([#49](https://github.com/AtlasHorizonNet/LANtern/issues/49)) ([6aee7ce](https://github.com/AtlasHorizonNet/LANtern/commit/6aee7ce6001b51ca09980e24b2513bae4d9756e2))
+* Settings About section with version info and source link ([#44](https://github.com/AtlasHorizonNet/LANtern/issues/44)) ([de82c7d](https://github.com/AtlasHorizonNet/LANtern/commit/de82c7d4bbc2e2f8bab7eae1a7ca96b53636cb9c))
+
 ## [0.7.0](https://github.com/AtlasHorizonNet/LANtern/compare/v0.6.0...v0.7.0) (2026-07-19)
 
 
