@@ -162,3 +162,4 @@ git push origin v0.1.0
 ## License
 
 LANtern is free software licensed under the [GNU General Public License v3.0 or later](LICENSE) (GPL-3.0-or-later).
+
