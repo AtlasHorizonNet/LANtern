@@ -256,7 +256,7 @@ fn parse_offer(data: &[u8], expected_xid: u32, elapsed: Duration) -> Option<Dhcp
                 gateway = Some(Ipv4Addr::new(val[0], val[1], val[2], val[3]).to_string());
             }
             OPT_DNS => {
-                for chunk in val.chunks_exact(4) {
+                for chunk in val.as_chunks::<4>().0 {
                     dns_servers
                         .push(Ipv4Addr::new(chunk[0], chunk[1], chunk[2], chunk[3]).to_string());
                 }

@@ -340,6 +340,10 @@ impl Database {
         network_id: i64,
         devices: &[Device],
     ) -> Result<(), String> {
+        // Deduplicate so a DHCP IP change (same MAC, old+new IP) cannot violate
+        // PRIMARY KEY (network_id, device_key).
+        let devices = crate::network::dedupe_devices(devices.to_vec());
+
         let tx = self
             .conn
             .unchecked_transaction()
@@ -361,8 +365,8 @@ impl Database {
                     "#,
                 )
                 .map_err(|e| e.to_string())?;
-            for d in devices {
-                let key = d.mac.clone().unwrap_or_else(|| d.ip.clone());
+            for d in &devices {
+                let key = crate::network::device_identity_key(d);
                 stmt.execute(params![
                     network_id,
                     key,
@@ -652,9 +656,19 @@ mod tests {
     }
 
     fn sample_device(ip: &str) -> Device {
+        // Derive a unique MAC from the IP so multi-device fixtures stay valid.
+        let octets: Vec<u8> = ip.split('.').filter_map(|p| p.parse::<u8>().ok()).collect();
+        let mac = if octets.len() == 4 {
+            format!(
+                "AA:BB:{:02X}:{:02X}:{:02X}:{:02X}",
+                octets[0], octets[1], octets[2], octets[3]
+            )
+        } else {
+            "AA:BB:CC:DD:EE:FF".into()
+        };
         Device {
             ip: ip.into(),
-            mac: Some("aa:bb:cc:dd:ee:ff".into()),
+            mac: Some(mac),
             hostname: Some("host".into()),
             vendor: Some("Vendor".into()),
             nickname: Some("Router".into()),
@@ -728,5 +742,30 @@ mod tests {
             .unwrap()
             .unwrap();
         assert_eq!(again.display_name.as_deref(), Some("Cafe Wi-Fi"));
+    }
+
+    #[test]
+    fn replace_network_devices_dedupes_same_mac() {
+        let db = Database::open_in_memory().unwrap();
+        let net = sample_network("ethernet:office|10.0.0.0/24|10.0.0.1");
+        let record = db.upsert_network(&net).unwrap();
+
+        let mut offline = sample_device("10.0.0.50");
+        offline.mac = Some("AA:BB:CC:DD:EE:01".into());
+        offline.online = false;
+        offline.last_seen = 100;
+
+        let mut online = sample_device("10.0.0.60");
+        online.mac = Some("AA:BB:CC:DD:EE:01".into());
+        online.online = true;
+        online.last_seen = 200;
+
+        db.replace_network_devices(record.id, &[offline, online])
+            .unwrap();
+
+        let stored = db.devices_for_network(&net.fingerprint).unwrap();
+        assert_eq!(stored.len(), 1);
+        assert_eq!(stored[0].ip, "10.0.0.60");
+        assert!(stored[0].online);
     }
 }

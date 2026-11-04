@@ -159,20 +159,31 @@ pub async fn run_scan(
         devices.push(device);
     }
 
-    // Merge previously known devices that went offline
+    // Merge previously known devices that went offline. Skip entries whose MAC
+    // matches an online host — DHCP often moves a NIC to a new IP, and keeping
+    // the stale IP would duplicate the same device_key in SQLite.
     let online_ips: HashSet<String> = devices.iter().map(|d| d.ip.clone()).collect();
+    let online_macs: HashSet<String> = devices.iter().filter_map(|d| d.mac.clone()).collect();
     for (ip, prev) in previous {
-        if !online_ips.contains(&ip) {
-            let mut offline = prev;
-            offline.online = false;
-            // refresh nickname if updated
-            let key = offline.mac.clone().unwrap_or_else(|| offline.ip.clone());
-            if let Some(n) = nicknames.get(&key).or_else(|| nicknames.get(&offline.ip)) {
-                offline.nickname = Some(n.clone());
-            }
-            devices.push(offline);
+        if online_ips.contains(&ip) {
+            continue;
         }
+        if let Some(mac) = prev.mac.as_ref() {
+            if online_macs.contains(mac) {
+                continue;
+            }
+        }
+        let mut offline = prev;
+        offline.online = false;
+        let key = offline.mac.clone().unwrap_or_else(|| offline.ip.clone());
+        if let Some(n) = nicknames.get(&key).or_else(|| nicknames.get(&offline.ip)) {
+            offline.nickname = Some(n.clone());
+        }
+        devices.push(offline);
     }
+
+    // Defensive: collapse any remaining MAC/IP identity collisions before UI/DB.
+    devices = crate::network::dedupe_devices(devices);
 
     devices.sort_by(|a, b| {
         // local first, gateway second, online before offline, then IP
